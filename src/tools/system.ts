@@ -5,8 +5,8 @@ import { spawn } from 'node:child_process';
 // --- set_location ---
 
 export const setLocationParams = {
-  latitude: z.number().describe('Latitude (-90 to 90)'),
-  longitude: z.number().describe('Longitude (-180 to 180)'),
+  latitude: z.number().min(-90).max(90).describe('Latitude (-90 to 90)'),
+  longitude: z.number().min(-180).max(180).describe('Longitude (-180 to 180)'),
   deviceId: z.string().optional().describe('Device (default: booted)'),
 };
 
@@ -36,6 +36,7 @@ export async function handleSendPush(args: { bundleId: string; payload: Record<s
   return new Promise<{ content: { type: 'text'; text: string }[] }>((resolve, reject) => {
     let stderr = '';
     child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+    child.on('error', (err) => reject(new Error(`Push spawn failed: ${err.message}`)));
     child.on('close', (code: number) => {
       if (code !== 0) {
         reject(new Error(`Push failed: ${stderr}`));
@@ -43,6 +44,7 @@ export async function handleSendPush(args: { bundleId: string; payload: Record<s
         resolve({ content: [{ type: 'text' as const, text: `Push notification sent to ${args.bundleId}` }] });
       }
     });
+    child.stdin.on('error', () => {}); // prevent EPIPE crash
     child.stdin.write(payloadJson);
     child.stdin.end();
   });
@@ -65,6 +67,7 @@ export async function handleSetClipboard(args: { text: string; deviceId?: string
   return new Promise<{ content: { type: 'text'; text: string }[] }>((resolve, reject) => {
     let stderr = '';
     child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+    child.on('error', (err) => reject(new Error(`pbcopy spawn failed: ${err.message}`)));
     child.on('close', (code: number) => {
       if (code !== 0) {
         reject(new Error(`pbcopy failed: ${stderr}`));
@@ -72,6 +75,7 @@ export async function handleSetClipboard(args: { text: string; deviceId?: string
         resolve({ content: [{ type: 'text' as const, text: `Clipboard set (${args.text.length} chars)` }] });
       }
     });
+    child.stdin.on('error', () => {}); // prevent EPIPE crash
     child.stdin.write(args.text);
     child.stdin.end();
   });

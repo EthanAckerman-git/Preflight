@@ -40,10 +40,12 @@ export async function handleGetLogs(args: {
   const device = await resolveDevice(args.deviceId);
   const predicateParts: string[] = [];
 
-  if (args.process) predicateParts.push(`processImagePath CONTAINS "${args.process}"`);
-  if (args.subsystem) predicateParts.push(`subsystem == "${args.subsystem}"`);
-  if (args.category) predicateParts.push(`category == "${args.category}"`);
-  if (args.messageContains) predicateParts.push(`eventMessage CONTAINS "${args.messageContains}"`);
+  // Sanitize predicate values — escape quotes to prevent predicate syntax breaking
+  const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  if (args.process) predicateParts.push(`processImagePath CONTAINS "${esc(args.process)}"`);
+  if (args.subsystem) predicateParts.push(`subsystem == "${esc(args.subsystem)}"`);
+  if (args.category) predicateParts.push(`category == "${esc(args.category)}"`);
+  if (args.messageContains) predicateParts.push(`eventMessage CONTAINS "${esc(args.messageContains)}"`);
 
   const cmdArgs = ['simctl', 'spawn', device, 'log', 'show'];
 

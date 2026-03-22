@@ -108,6 +108,10 @@ export async function handleRecordVideo(args: { outputPath?: string; codec?: str
   child.on('exit', () => {
     activeRecordings.delete(device);
   });
+  child.on('error', (err) => {
+    logger.error('tool:recordVideo', `Recording process error: ${err.message}`);
+    activeRecordings.delete(device);
+  });
 
   logger.debug('tool:recordVideo', `Recording started: ${outputPath}`);
 
