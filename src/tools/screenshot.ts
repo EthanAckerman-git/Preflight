@@ -17,6 +17,7 @@ export const screenshotParams = {
   deviceId: z.string().optional().describe('Device UDID, name, or "booted" (default: booted)'),
   format: z.enum(['png', 'jpeg']).optional().describe('Image format (default: jpeg)'),
   savePath: z.string().optional().describe('Optional custom path to save the screenshot. Defaults to ~/Desktop/SimulatorScreenshots/<timestamp>.<format>'),
+  autoDelete: z.boolean().optional().describe('Delete the saved file after returning it (saves disk space). Default: false'),
 };
 
 /**
@@ -53,7 +54,7 @@ async function compressToJpeg(pngBuffer: Buffer): Promise<Buffer> {
   }
 }
 
-export async function handleScreenshot(args: { deviceId?: string; format?: string; savePath?: string }) {
+export async function handleScreenshot(args: { deviceId?: string; format?: string; savePath?: string; autoDelete?: boolean }) {
   const start = Date.now();
   const device = await resolveDevice(args.deviceId);
   const requestedFormat = args.format || 'jpeg'; // default to jpeg for efficiency
@@ -94,6 +95,16 @@ export async function handleScreenshot(args: { deviceId?: string; format?: strin
   const base64Data = outputBuffer.toString('base64');
   logger.toolEnd('simulator_screenshot', Date.now() - start, true);
 
+  // Auto-delete if requested (data already encoded as base64 for transmission)
+  let deleteNote = '';
+  if (args.autoDelete && savedPath) {
+    try {
+      await unlink(savedPath);
+      deleteNote = ' (auto-deleted after encoding)';
+      savedPath = '';
+    } catch { /* ignore */ }
+  }
+
   return {
     content: [
       {
@@ -103,7 +114,7 @@ export async function handleScreenshot(args: { deviceId?: string; format?: strin
       },
       {
         type: 'text' as const,
-        text: `Screenshot captured (${format}, ${Math.round(outputBuffer.length / 1024)}KB)${savedPath ? `\nSaved to: ${savedPath}` : ''}`,
+        text: `Screenshot captured (${format}, ${Math.round(outputBuffer.length / 1024)}KB)${savedPath ? `\nSaved to: ${savedPath}` : ''}${deleteNote}`,
       },
     ],
   };

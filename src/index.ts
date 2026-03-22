@@ -54,6 +54,22 @@ import {
   accessibilityAuditParams, handleAccessibilityAudit,
   getScreenInfoParams, handleGetScreenInfo,
 } from './tools/debug.js';
+import {
+  icloudSyncParams, handleIcloudSync,
+  keychainParams, handleKeychain,
+  contentSizeParams, handleContentSize,
+  increaseContrastParams, handleIncreaseContrast,
+  locationScenarioParams, handleLocationScenario,
+  locationRouteParams, handleLocationRoute,
+  verboseLoggingParams, handleVerboseLogging,
+  installAppDataParams, handleInstallAppData,
+  getEnvParams, handleGetEnv,
+  memoryWarningParams, handleMemoryWarning,
+  biometricParams, handleBiometric,
+  networkStatusParams, handleNetworkStatus,
+  defaultsReadParams, handleDefaultsRead,
+  defaultsWriteParams, handleDefaultsWrite,
+} from './tools/advanced.js';
 
 const server = new McpServer({
   name: 'ios-simulator',
@@ -355,6 +371,106 @@ server.tool(
   'Navigate back in the current app. Sends Cmd+[ (standard back navigation). Works in Safari and apps with standard UINavigationController. Workaround for edge-swipe-back gesture limitation.',
   navigateBackParams,
   wrapHandler('simulator_navigate_back', handleNavigateBack),
+);
+
+// ========== Advanced Tools ==========
+
+server.tool(
+  'simulator_icloud_sync',
+  'Trigger iCloud sync on the device. Requires the device to be signed into an Apple ID.',
+  icloudSyncParams,
+  wrapHandler('simulator_icloud_sync', handleIcloudSync),
+);
+
+server.tool(
+  'simulator_keychain',
+  'Manipulate the device keychain: add root certificates, add certificates, or reset the entire keychain.',
+  keychainParams,
+  wrapHandler('simulator_keychain', handleKeychain),
+);
+
+server.tool(
+  'simulator_set_content_size',
+  'Set the preferred content size for Dynamic Type testing. Test your app with accessibility text sizes without changing device settings manually.',
+  contentSizeParams,
+  wrapHandler('simulator_set_content_size', handleContentSize),
+);
+
+server.tool(
+  'simulator_set_increase_contrast',
+  'Enable or disable the Increase Contrast accessibility setting. Test how your app responds to high contrast mode.',
+  increaseContrastParams,
+  wrapHandler('simulator_set_increase_contrast', handleIncreaseContrast),
+);
+
+server.tool(
+  'simulator_location_scenario',
+  'Run predefined GPS location scenarios (Freeway Drive, City Run, City Bicycle Ride). Simulates realistic movement patterns for testing location features.',
+  locationScenarioParams,
+  wrapHandler('simulator_location_scenario', handleLocationScenario),
+);
+
+server.tool(
+  'simulator_location_route',
+  'Simulate movement along a custom route with waypoints. Specify GPS coordinates and speed for realistic location testing.',
+  locationRouteParams,
+  wrapHandler('simulator_location_route', handleLocationRoute),
+);
+
+server.tool(
+  'simulator_verbose_logging',
+  'Enable or disable verbose device logging for deep debugging. Requires device reboot to take effect.',
+  verboseLoggingParams,
+  wrapHandler('simulator_verbose_logging', handleVerboseLogging),
+);
+
+server.tool(
+  'simulator_install_app_data',
+  'Install an .xcappdata package to replace the current app container contents. Useful for restoring test data snapshots.',
+  installAppDataParams,
+  wrapHandler('simulator_install_app_data', handleInstallAppData),
+);
+
+server.tool(
+  'simulator_get_env',
+  'Read an environment variable from the running simulator device (e.g., HOME, TMPDIR, PATH).',
+  getEnvParams,
+  wrapHandler('simulator_get_env', handleGetEnv),
+);
+
+server.tool(
+  'simulator_memory_warning',
+  'Trigger a simulated memory warning. Apps will receive didReceiveMemoryWarning and can be tested for proper memory cleanup.',
+  memoryWarningParams,
+  wrapHandler('simulator_memory_warning', handleMemoryWarning),
+);
+
+server.tool(
+  'simulator_biometric',
+  'Set Face ID / Touch ID enrollment state. Test biometric authentication flows.',
+  biometricParams,
+  wrapHandler('simulator_biometric', handleBiometric),
+);
+
+server.tool(
+  'simulator_network_status',
+  'Get the current network configuration inside the simulator — interfaces, IP addresses, DNS config.',
+  networkStatusParams,
+  wrapHandler('simulator_network_status', handleNetworkStatus),
+);
+
+server.tool(
+  'simulator_defaults_read',
+  'Read UserDefaults values from inside the simulator. Inspect app preferences, feature flags, and configuration.',
+  defaultsReadParams,
+  wrapHandler('simulator_defaults_read', handleDefaultsRead),
+);
+
+server.tool(
+  'simulator_defaults_write',
+  'Write UserDefaults values inside the simulator. Set feature flags, change app configuration, or inject test data.',
+  defaultsWriteParams,
+  wrapHandler('simulator_defaults_write', handleDefaultsWrite),
 );
 
 // ========== Start Server ==========

@@ -2,13 +2,13 @@
 
 The most comprehensive MCP (Model Context Protocol) server for iOS Simulator automation. Gives AI agents like Claude full control over iOS Simulators — tap, swipe, type, read accessibility trees, inspect app data, capture screenshots, record video, manage devices, and debug apps in real time.
 
-**37 tools** across 9 categories. Zero cursor interference — works silently in the background while you use your Mac.
+**51 tools** across 10 categories. Zero cursor interference — works silently in the background while you use your Mac.
 
 ## Why This Server?
 
 | Feature | This Server | [ios-simulator-mcp](https://github.com/joshuayoes/ios-simulator-mcp) |
 |---------|-------------|------|
-| **Total tools** | **37** | 13 |
+| **Total tools** | **51** | 13 |
 | **Touch injection** | idb (IndigoHID) — cursor-free | idb |
 | **Accessibility tree** | Real iOS elements via idb | idb |
 | **Device logs** | Filter by process, level, time | None |
@@ -32,6 +32,20 @@ The most comprehensive MCP (Model Context Protocol) server for iOS Simulator aut
 | **Screenshot format** | JPEG compressed (~300KB) | JPEG compressed |
 | **CGEvent fallback** | Works without idb installed | Requires idb |
 | **Diagnostics** | Xcode version, disk usage, device info | None |
+| **Dynamic Type testing** | Set content size (13 categories) | None |
+| **High contrast mode** | Toggle Increase Contrast | None |
+| **Location routes** | Predefined scenarios + custom waypoints | None |
+| **Memory warnings** | Simulate low memory | None |
+| **Keychain management** | Add certs, reset keychain | None |
+| **iCloud sync** | Trigger sync | None |
+| **Verbose logging** | Enable/disable deep logging | None |
+| **App data packages** | Install .xcappdata snapshots | None |
+| **UserDefaults R/W** | Read/write defaults from CLI | None |
+| **Environment vars** | Read simulator env vars | None |
+| **Biometric enrollment** | Toggle Face ID/Touch ID | None |
+| **Network diagnostics** | DNS, interfaces, connectivity | None |
+| **Screenshot auto-delete** | Free disk after transmission | None |
+| **Screen mapping cache** | 10s cache for faster interactions | N/A |
 
 ## Quick Start
 
@@ -175,11 +189,30 @@ npm run build
 | `simulator_record_video` | Start screen recording (H.264/HEVC). Saves to `~/Desktop/SimulatorRecordings/`. |
 | `simulator_stop_recording` | Stop recording and finalize the video file. |
 
+### Advanced Debugging & Testing (14 tools)
+
+| Tool | Description |
+|------|-------------|
+| `simulator_set_content_size` | Set Dynamic Type preferred size (13 categories from extra-small to accessibility-XXXL). |
+| `simulator_set_increase_contrast` | Toggle Increase Contrast accessibility setting. |
+| `simulator_location_scenario` | Run predefined GPS routes: Freeway Drive, City Run, City Bicycle Ride. |
+| `simulator_location_route` | Simulate movement along custom waypoints with configurable speed. |
+| `simulator_memory_warning` | Trigger simulated memory warning (didReceiveMemoryWarning). |
+| `simulator_keychain` | Add root certificates, add certificates, or reset the device keychain. |
+| `simulator_icloud_sync` | Trigger iCloud synchronization on the device. |
+| `simulator_verbose_logging` | Enable/disable verbose device logging for deep debugging. |
+| `simulator_install_app_data` | Install .xcappdata packages to restore test data snapshots. |
+| `simulator_get_env` | Read environment variables from the running simulator. |
+| `simulator_biometric` | Set Face ID / Touch ID enrollment state for auth testing. |
+| `simulator_network_status` | Get network configuration — DNS, interfaces, connectivity status. |
+| `simulator_defaults_read` | Read UserDefaults from inside the simulator (inspect app prefs, feature flags). |
+| `simulator_defaults_write` | Write UserDefaults inside the simulator (set flags, inject test config). |
+
 ## Architecture
 
 ```
 src/
-├── index.ts                    # MCP server entry, 37 tool registrations
+├── index.ts                    # MCP server entry, 51 tool registrations
 ├── helpers/
 │   ├── idb.ts                  # Facebook idb CLI wrapper (cursor-free touch)
 │   ├── simctl.ts               # xcrun simctl command wrapper
@@ -194,7 +227,8 @@ src/
     ├── app.ts                  # Install, launch, terminate, list
     ├── system.ts               # Location, push, clipboard, media, permissions
     ├── ui.ts                   # Appearance, status bar, video, navigate back
-    └── debug.ts                # Logs, files, crash reports, accessibility
+    ├── debug.ts                # Logs, files, crash reports, accessibility
+    └── advanced.ts             # Dynamic Type, keychain, iCloud, biometric, defaults
 ```
 
 ### Touch Injection Pipeline

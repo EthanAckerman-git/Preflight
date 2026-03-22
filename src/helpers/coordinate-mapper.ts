@@ -120,10 +120,22 @@ export async function getDeviceScreenDimensions(device: string): Promise<{
   return { pointWidth, pointHeight, scaleFactor, pixelWidth, pixelHeight };
 }
 
+// Cache screen mapping for 10 seconds to avoid repeated AppleScript + screenshot calls
+let cachedMapping: ScreenMapping | null = null;
+let cachedMappingTime = 0;
+const CACHE_TTL_MS = 10000;
+
 /**
  * Compute the full screen mapping from simulator points to macOS screen coordinates.
+ * Cached for 10 seconds to improve performance during rapid interactions.
  */
 export async function getScreenMapping(device: string): Promise<ScreenMapping> {
+  const now = Date.now();
+  if (cachedMapping && (now - cachedMappingTime) < CACHE_TTL_MS) {
+    logger.debug('coordinate-mapper', 'Using cached screen mapping');
+    return cachedMapping;
+  }
+
   const [windowGeometry, screenDims] = await Promise.all([
     getSimulatorWindowGeometry(),
     getDeviceScreenDimensions(device),
@@ -148,6 +160,8 @@ export async function getScreenMapping(device: string): Promise<ScreenMapping> {
   };
 
   logger.debug('coordinate-mapper', 'Screen mapping computed', mapping);
+  cachedMapping = mapping;
+  cachedMappingTime = Date.now();
   return mapping;
 }
 
