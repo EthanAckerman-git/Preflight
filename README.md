@@ -1,51 +1,18 @@
-# iOS Simulator MCP Server
+# Preflight MCP
 
-The most comprehensive MCP (Model Context Protocol) server for iOS Simulator automation. Gives AI agents like Claude full control over iOS Simulators — tap, swipe, type, read accessibility trees, inspect app data, capture screenshots, record video, manage devices, and debug apps in real time.
+The most comprehensive MCP (Model Context Protocol) server for iOS Simulator automation. Gives AI agents like Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible tool full control over iOS Simulators — tap, swipe, type, read accessibility trees, inspect app data, capture screenshots, record video, manage devices, and debug apps in real time.
 
-**51 tools** across 10 categories. Zero cursor interference — works silently in the background while you use your Mac.
+**57 tools** across 10 categories. Zero cursor interference — works silently in the background while you use your Mac.
 
-## Why This Server?
+Inspired by [Playwright MCP](https://github.com/anthropics/mcp-server-playwright) for web automation — Preflight brings the same structured accessibility-first approach to iOS.
 
-| Feature | This Server | [ios-simulator-mcp](https://github.com/joshuayoes/ios-simulator-mcp) |
-|---------|-------------|------|
-| **Total tools** | **51** | 13 |
-| **Touch injection** | idb (IndigoHID) — cursor-free | idb |
-| **Accessibility tree** | Real iOS elements via idb | idb |
-| **Device logs** | Filter by process, level, time | None |
-| **Live log streaming** | Start/read/stop with buffer | None |
-| **Crash reports** | Stack traces, thread states | None |
-| **App file access** | Read plists, SQLite, Documents/ | None |
-| **App container paths** | Bundle, data, shared groups | None |
-| **Permission management** | Grant/revoke camera, location, etc. | None |
-| **GPS simulation** | Set lat/lng coordinates | None |
-| **Push notifications** | Send APNs payloads to any app | None |
-| **Clipboard read/write** | Get and set pasteboard text | None |
-| **Dark mode toggle** | Light/dark appearance | None |
-| **Status bar override** | Time, battery, signal, carrier | None |
-| **Video recording** | H.264/HEVC with start/stop | H.264/HEVC |
-| **Long press** | Configurable duration | Via tap duration |
-| **Key press** | Special keys + modifiers (Cmd+[, etc.) | None |
-| **Navigate back** | Convenience tool for back nav | None |
-| **Media import** | Add photos/videos to camera roll | None |
-| **Device management** | Boot, shutdown, erase, list | Partial |
-| **App management** | Install, launch, terminate, uninstall, list, info | Install, launch |
-| **Screenshot format** | JPEG compressed (~300KB) | JPEG compressed |
-| **CGEvent fallback** | Works without idb installed | Requires idb |
-| **Diagnostics** | Xcode version, disk usage, device info | None |
-| **Dynamic Type testing** | Set content size (13 categories) | None |
-| **High contrast mode** | Toggle Increase Contrast | None |
-| **Location routes** | Predefined scenarios + custom waypoints | None |
-| **Memory warnings** | Simulate low memory | None |
-| **Keychain management** | Add certs, reset keychain | None |
-| **iCloud sync** | Trigger sync | None |
-| **Verbose logging** | Enable/disable deep logging | None |
-| **App data packages** | Install .xcappdata snapshots | None |
-| **UserDefaults R/W** | Read/write defaults from CLI | None |
-| **Environment vars** | Read simulator env vars | None |
-| **Biometric enrollment** | Toggle Face ID/Touch ID | None |
-| **Network diagnostics** | DNS, interfaces, connectivity | None |
-| **Screenshot auto-delete** | Free disk after transmission | None |
-| **Screen mapping cache** | 10s cache for faster interactions | N/A |
+## Why Preflight?
+
+- **No disk clutter** — Screenshots and video frames return directly in chat. No folders filling up.
+- **AI-optimized** — Images compressed for minimal token usage. Video → key frames (most AI models can't view video files).
+- **Accessibility-first** — Like Playwright's `browser_snapshot`, use `simulator_snapshot` to understand the screen without vision models.
+- **Cursor-free** — Touch injection via idb (IndigoHID) — your Mac cursor stays put.
+- **57 tools** — From basic tap/swipe to Dynamic Type testing, biometric enrollment, crash log analysis.
 
 ## Quick Start
 
@@ -65,22 +32,33 @@ pip3 install fb-idb
 
 > Without idb, the server falls back to CGEvent mouse injection (works but briefly moves your cursor).
 
-### Add to Claude Code
+### Build from Source
 
 ```bash
-# Option 1: Add via CLI
-claude mcp add ios-simulator node /path/to/ios-simulator-mcp/dist/index.js
+git clone https://github.com/EthanAckerman-git/Preflight.git
+cd Preflight
+npm install
+npm run build
+```
 
-# Option 2: Add .mcp.json to your project root
+## Setup by IDE / AI Tool
+
+### Claude Code
+
+```bash
+# Option 1: CLI
+claude mcp add preflight node /path/to/Preflight/dist/index.js
+
+# Option 2: .mcp.json in your project root
 ```
 
 **.mcp.json:**
 ```json
 {
   "mcpServers": {
-    "ios-simulator": {
+    "preflight": {
       "command": "node",
-      "args": ["/path/to/ios-simulator-mcp/dist/index.js"],
+      "args": ["/path/to/Preflight/dist/index.js"],
       "env": {
         "LOG_LEVEL": "info",
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
@@ -92,28 +70,109 @@ claude mcp add ios-simulator node /path/to/ios-simulator-mcp/dist/index.js
 
 > Add your Python bin directory to `PATH` if idb was installed via pip (e.g., `~/Library/Python/3.x/bin`).
 
-### Add to Cursor
+### Cursor
 
-**~/.cursor/mcp.json:**
+Add to **~/.cursor/mcp.json** (global) or **.cursor/mcp.json** (per-project):
+
 ```json
 {
   "mcpServers": {
-    "ios-simulator": {
+    "preflight": {
       "command": "node",
-      "args": ["/path/to/ios-simulator-mcp/dist/index.js"]
+      "args": ["/path/to/Preflight/dist/index.js"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      }
     }
   }
 }
 ```
 
-### Build from Source
+Then in Cursor: **Settings → MCP** — verify "preflight" shows as connected.
+
+### Windsurf
+
+Add to **~/.codeium/windsurf/mcp_config.json**:
+
+```json
+{
+  "mcpServers": {
+    "preflight": {
+      "command": "node",
+      "args": ["/path/to/Preflight/dist/index.js"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      }
+    }
+  }
+}
+```
+
+Then in Windsurf: **Settings → Cascade → MCP** — verify "preflight" appears.
+
+### VS Code (Copilot / Cline / Continue)
+
+Add to **.vscode/mcp.json** in your project:
+
+```json
+{
+  "servers": {
+    "preflight": {
+      "command": "node",
+      "args": ["/path/to/Preflight/dist/index.js"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      }
+    }
+  }
+}
+```
+
+For **Cline** (VS Code extension), add to **~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json**:
+
+```json
+{
+  "mcpServers": {
+    "preflight": {
+      "command": "node",
+      "args": ["/path/to/Preflight/dist/index.js"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      }
+    }
+  }
+}
+```
+
+### Zed
+
+Add to **~/.config/zed/settings.json**:
+
+```json
+{
+  "context_servers": {
+    "preflight": {
+      "command": {
+        "path": "node",
+        "args": ["/path/to/Preflight/dist/index.js"],
+        "env": {
+          "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+        }
+      }
+    }
+  }
+}
+```
+
+### Any MCP-Compatible Client
+
+Preflight uses the standard MCP stdio transport. Configure your client to run:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ios-simulator-mcp.git
-cd ios-simulator-mcp
-npm install
-npm run build
+node /path/to/Preflight/dist/index.js
 ```
+
+Set the `PATH` environment variable to include idb's location for cursor-free touch injection.
 
 ## Tools Reference
 
@@ -121,7 +180,7 @@ npm run build
 
 | Tool | Description |
 |------|-------------|
-| `simulator_screenshot` | Take a JPEG screenshot (~300KB). Auto-saved to `~/Desktop/SimulatorScreenshots/`. |
+| `simulator_screenshot` | Take a JPEG screenshot optimized for AI chat (~200-400KB). Returns image inline. |
 | `simulator_list_devices` | List simulators with name, UDID, state, runtime. Filter: `booted`, `available`, `all`. |
 | `simulator_list_apps` | List installed apps with bundle IDs. Toggle `includeSystem` for system apps. |
 | `simulator_app_info` | Get app metadata: name, version, bundle path, data path, type. |
@@ -139,7 +198,15 @@ npm run build
 | `simulator_press_key` | Press special keys (return, escape, arrows, F-keys) with modifiers. |
 | `simulator_navigate_back` | Navigate back via Cmd+[. Workaround for edge-swipe limitations. |
 
-### Device Management (4 tools)
+### Playwright-Inspired (3 tools)
+
+| Tool | Description |
+|------|-------------|
+| `simulator_snapshot` | **Preferred over screenshots.** Structured accessibility tree — roles, labels, values, positions. No vision model needed. Like Playwright's `browser_snapshot`. |
+| `simulator_wait_for_element` | Wait for an element to appear (by label, role, or text). Polls with configurable timeout. Like Playwright's `browser_wait_for`. |
+| `simulator_element_exists` | Quick boolean check: does an element matching criteria exist on screen right now? |
+
+### Device Management (6 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -147,6 +214,8 @@ npm run build
 | `simulator_shutdown` | Shut down a running simulator. |
 | `simulator_erase` | Factory reset — erases all content and settings. |
 | `simulator_open_url` | Open URLs or deep links (e.g., `myapp://screen`). |
+| `simulator_open_simulator` | Open the Simulator.app application. |
+| `simulator_get_booted_sim_id` | Get the UDID of the currently booted simulator. |
 
 ### App Management (4 tools)
 
@@ -154,10 +223,10 @@ npm run build
 |------|-------------|
 | `simulator_launch_app` | Launch by bundle ID with optional args and env vars. |
 | `simulator_terminate_app` | Force-terminate a running app. |
-| `simulator_install_app` | Install a .app bundle from a local path. |
+| `simulator_install_app` | Install a .app bundle or .ipa from a local path. |
 | `simulator_uninstall_app` | Uninstall by bundle ID. |
 
-### Debugging & Diagnostics (8 tools)
+### Debugging & Diagnostics (9 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -169,6 +238,7 @@ npm run build
 | `simulator_get_crash_logs` | Retrieve crash reports with stack traces and thread states. |
 | `simulator_diagnose` | Xcode version, disk usage, booted devices, system info. |
 | `simulator_accessibility_audit` | Full iOS accessibility tree — real UIButton/UILabel elements with labels, frames, roles. |
+| `simulator_describe_point` | Returns the accessibility element at given coordinates. |
 
 ### System Simulation (5 tools)
 
@@ -186,8 +256,8 @@ npm run build
 |------|-------------|
 | `simulator_set_appearance` | Switch between light and dark mode. |
 | `simulator_override_status_bar` | Set time, battery, signal, carrier, network type. |
-| `simulator_record_video` | Start screen recording (H.264/HEVC). Saves to `~/Desktop/SimulatorRecordings/`. |
-| `simulator_stop_recording` | Stop recording and finalize the video file. |
+| `simulator_record_video` | Start screen recording. On stop, key frames are extracted as images for AI chat. |
+| `simulator_stop_recording` | Stop recording. Returns key frames inline (no disk clutter). Optional `savePath` to keep the video. |
 
 ### Advanced Debugging & Testing (14 tools)
 
@@ -212,7 +282,7 @@ npm run build
 
 ```
 src/
-├── index.ts                    # MCP server entry, 51 tool registrations
+├── index.ts                    # MCP server entry, 57 tool registrations
 ├── helpers/
 │   ├── idb.ts                  # Facebook idb CLI wrapper (cursor-free touch)
 │   ├── simctl.ts               # xcrun simctl command wrapper
@@ -221,15 +291,29 @@ src/
 │   ├── mouse-events.swift      # Native Swift CGEvent binary (fallback)
 │   └── logger.ts               # Structured stderr logging
 └── tools/
-    ├── screenshot.ts           # JPEG capture with compression
+    ├── screenshot.ts           # JPEG capture optimized for AI chat
     ├── interaction.ts          # Tap, swipe, long press, type, key
     ├── device.ts               # Boot, shutdown, erase, open URL
     ├── app.ts                  # Install, launch, terminate, list
     ├── system.ts               # Location, push, clipboard, media, permissions
-    ├── ui.ts                   # Appearance, status bar, video, navigate back
+    ├── ui.ts                   # Appearance, status bar, video recording, navigate back
     ├── debug.ts                # Logs, files, crash reports, accessibility
-    └── advanced.ts             # Dynamic Type, keychain, iCloud, biometric, defaults
+    ├── advanced.ts             # Dynamic Type, keychain, iCloud, biometric, defaults
+    └── playwright.ts           # Snapshot, wait_for_element, element_exists
 ```
+
+### Design Philosophy
+
+**Accessibility-first, like Playwright MCP:**
+1. Use `simulator_snapshot` to understand the screen (structured text, no vision model)
+2. Use coordinates from the snapshot to `simulator_tap`, `simulator_swipe`, etc.
+3. Use `simulator_screenshot` when you need visual verification
+4. Use `simulator_wait_for_element` before interacting with elements that appear after transitions
+
+**No disk clutter:**
+- Screenshots return as base64 in chat — no folders filling up your Desktop
+- Video recordings extract key frames as inline images on stop
+- Optional `savePath` parameter if you actually need files on disk
 
 ### Touch Injection Pipeline
 
@@ -242,20 +326,6 @@ simulator_tap(x=200, y=400)
     │
     └─ idb unavailable? ──► coordinate mapper → macOS screen coords
                              → Swift CGEvent binary → mouse down/up
-                             → cursor save/restore (CGWarp)
-```
-
-### Accessibility Pipeline
-
-```
-simulator_accessibility_audit()
-    │
-    ├─ idb available? ──YES──► idb ui describe-all --udid <UDID>
-    │                           Returns: UIButton "Settings" @(306,389) 68x91
-    │                                    UILabel "Calendar" @(121,289) ...
-    │
-    └─ idb unavailable? ──► AppleScript System Events traversal (4 levels)
-                             Returns: AXButton, AXGroup, AXToolbar (limited)
 ```
 
 ## Demo App
@@ -282,31 +352,23 @@ The demo app has 4 tabs exercising every tool category:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LOG_LEVEL` | `info` | Logging level: `debug`, `info`, `warn`, `error` |
+| `PREFLIGHT_FILTERED_TOOLS` | (none) | Comma-separated list of tool names to disable |
+| `PREFLIGHT_IDB_PATH` | (auto-detect) | Custom path to idb binary |
 | `PATH` | System PATH | Must include idb binary location |
-
-### File Locations
-
-| Path | Description |
-|------|-------------|
-| `~/Desktop/SimulatorScreenshots/` | Auto-saved screenshots (JPEG) |
-| `~/Desktop/SimulatorRecordings/` | Video recordings (MP4) |
 
 ## Example Prompts
 
 ### QA Testing
 > "Boot the iPhone 16 Pro simulator, install my app at ./build/MyApp.app, launch it, and take a screenshot of the home screen. Then tap the login button, type test@email.com in the email field, and verify the form validation works."
 
+### Accessibility-First Workflow (Playwright-style)
+> "Take a snapshot of the current screen to see what elements are available. Then tap the button labeled 'Sign In' and wait for the email text field to appear."
+
 ### Debugging
-> "My app is crashing on launch. Check the crash logs for MyApp, then get the last 5 minutes of device logs filtered to the MyApp process. Also read the UserDefaults plist from the app container."
-
-### Accessibility Audit
-> "Run an accessibility audit on the current screen. Are all interactive elements properly labeled? Check if the login button has an accessibility label."
-
-### Location Testing
-> "Set the simulator location to Tokyo (35.6762, 139.6503), then take a screenshot to verify the map updated. Now set it to London and check again."
+> "My app is crashing on launch. Check the crash logs for MyApp, then get the last 5 minutes of device logs filtered to the MyApp process."
 
 ### Dark Mode Testing
-> "Switch to dark mode, take a screenshot, then switch back to light mode and screenshot again. Compare the two for any contrast issues."
+> "Switch to dark mode, take a screenshot, then switch to light mode and screenshot again."
 
 ## Troubleshooting
 
@@ -314,35 +376,23 @@ The demo app has 4 tabs exercising every tool category:
 If tools show `[CGEvent fallback]` instead of `[cursor-free]`:
 
 1. Verify idb is installed: `which idb` or check `~/Library/Python/3.x/bin/idb`
-2. Add the idb path to your `.mcp.json` `PATH` env var
-3. Restart the MCP server: `pkill -f ios-simulator-mcp`
+2. Add the idb path to your MCP config's `PATH` env var
+3. Or set `PREFLIGHT_IDB_PATH` directly
 
 ### Simulator not found
-If tools report "No simulator is currently booted":
-
 1. Open Simulator.app: `open -a Simulator`
 2. Boot a device: use `simulator_boot` or `xcrun simctl boot "iPhone 16 Pro"`
 
 ### Accessibility permission errors
-If touch/keyboard tools fail with "not allowed":
-
 1. Go to System Settings → Privacy & Security → Accessibility
-2. Add your terminal app (Terminal.app, iTerm, Claude Code, etc.)
-
-### Screenshots are too large
-Screenshots default to JPEG at quality 70 (~300KB). If still too large, they auto-compress to quality 40. For PNG, pass `format: "png"`.
+2. Add your terminal app (Terminal.app, iTerm, Claude Code, Cursor, Windsurf, etc.)
 
 ## Development
 
 ```bash
-# Watch mode (TypeScript only)
-npm run dev
-
-# Full rebuild (TypeScript + Swift binary)
-npm run build
-
-# Run directly
-node dist/index.js
+npm run dev    # Watch mode (TypeScript only)
+npm run build  # Full rebuild (TypeScript + Swift binary)
+node dist/index.js  # Run directly
 ```
 
 ## License

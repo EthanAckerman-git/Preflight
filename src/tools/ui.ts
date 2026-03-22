@@ -1,14 +1,16 @@
 import { z } from 'zod';
-import { execSimctl, resolveDevice } from '../helpers/simctl.js';
+import { execSimctl, execSimctlBuffer, resolveDevice } from '../helpers/simctl.js';
 import * as logger from '../helpers/logger.js';
-import { spawn, ChildProcess } from 'node:child_process';
+import { spawn, ChildProcess, execFile } from 'node:child_process';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
-import { mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { mkdir, writeFile, unlink, readFile } from 'node:fs/promises';
+import { promisify } from 'node:util';
 
-// Active video recording processes
-const activeRecordings = new Map<string, { process: ChildProcess; outputPath: string; startTime: number }>();
-const RECORDINGS_DIR = join(homedir(), 'Desktop', 'SimulatorRecordings');
+const execFileAsync = promisify(execFile);
+
+// Active video recording state
+const activeRecordings = new Map<string, { process: ChildProcess; tmpPath: string; startTime: number }>();
 
 // --- set_appearance ---
 
@@ -79,57 +81,63 @@ export async function handleOverrideStatusBar(args: {
 }
 
 // --- record_video ---
+// Records to a temp file. On stop, extracts key frames and returns them as images
+// directly in chat. No permanent disk clutter. Most AI models can't view video files
+// so key frames are much more useful.
 
 export const recordVideoParams = {
-  outputPath: z.string().optional().describe('Path to save the video file. Defaults to ~/Desktop/SimulatorRecordings/<timestamp>.mp4'),
   codec: z.enum(['h264', 'hevc']).optional().describe('Video codec (default: h264)'),
+  display: z.enum(['internal', 'external']).optional().describe('Display to capture (default: internal)'),
+  mask: z.enum(['ignored', 'alpha', 'black']).optional().describe('For non-rectangular displays, handle mask by policy'),
   deviceId: z.string().optional().describe('Device (default: booted)'),
 };
 
-export async function handleRecordVideo(args: { outputPath?: string; codec?: string; deviceId?: string }) {
+export async function handleRecordVideo(args: {
+  codec?: string; display?: string; mask?: string; deviceId?: string;
+}) {
   const device = await resolveDevice(args.deviceId);
   const codec = args.codec || 'h264';
 
-  // Check for existing recording on this device
   if (activeRecordings.has(device)) {
     return { content: [{ type: 'text' as const, text: 'A recording is already in progress. Use simulator_stop_recording to stop it first.' }] };
   }
 
-  // Determine output path
-  await mkdir(RECORDINGS_DIR, { recursive: true });
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const outputPath = args.outputPath || join(RECORDINGS_DIR, `recording-${timestamp}.mp4`);
+  // Record to temp file — will be cleaned up after frame extraction
+  const tmpPath = join(tmpdir(), `preflight-rec-${Date.now()}.mp4`);
 
-  const cmdArgs = ['simctl', 'io', device, 'recordVideo', '--codec', codec, outputPath];
+  const cmdArgs = ['simctl', 'io', device, 'recordVideo', '--codec', codec];
+  if (args.display) cmdArgs.push(`--display=${args.display}`);
+  if (args.mask) cmdArgs.push(`--mask=${args.mask}`);
+  cmdArgs.push('--force', tmpPath);
   const child = spawn('xcrun', cmdArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
 
-  activeRecordings.set(device, { process: child, outputPath, startTime: Date.now() });
+  activeRecordings.set(device, { process: child, tmpPath, startTime: Date.now() });
 
-  child.on('exit', () => {
-    activeRecordings.delete(device);
-  });
+  child.on('exit', () => { activeRecordings.delete(device); });
   child.on('error', (err) => {
     logger.error('tool:recordVideo', `Recording process error: ${err.message}`);
     activeRecordings.delete(device);
   });
 
-  logger.debug('tool:recordVideo', `Recording started: ${outputPath}`);
-
   return {
     content: [{
       type: 'text' as const,
-      text: `Video recording started (${codec}). Output: ${outputPath}\nUse simulator_stop_recording to stop.`,
+      text: `Video recording started (${codec}). Use simulator_stop_recording to stop and get key frames.`,
     }],
   };
 }
 
 // --- stop_recording ---
+// Stops recording, extracts key frames as JPEG images, returns them inline.
+// Cleans up the temp video file. No disk clutter.
 
 export const stopRecordingParams = {
+  savePath: z.string().optional().describe('Optional: save the video file to this path instead of discarding it'),
+  maxFrames: z.number().optional().describe('Max number of key frames to extract (default: 3, max: 6)'),
   deviceId: z.string().optional().describe('Device (default: booted)'),
 };
 
-export async function handleStopRecording(args: { deviceId?: string }) {
+export async function handleStopRecording(args: { savePath?: string; maxFrames?: number; deviceId?: string }) {
   const device = await resolveDevice(args.deviceId);
   const recording = activeRecordings.get(device);
 
@@ -137,20 +145,105 @@ export async function handleStopRecording(args: { deviceId?: string }) {
     return { content: [{ type: 'text' as const, text: 'No active recording to stop.' }] };
   }
 
-  // Send SIGINT to gracefully stop recording (simctl finishes writing the file)
+  // Gracefully stop recording
   recording.process.kill('SIGINT');
   const duration = Math.round((Date.now() - recording.startTime) / 1000);
-
-  // Wait a moment for the file to be finalized
-  await new Promise(resolve => setTimeout(resolve, 1000));
   activeRecordings.delete(device);
 
-  return {
-    content: [{
-      type: 'text' as const,
-      text: `Recording stopped after ${duration}s. Saved to: ${recording.outputPath}`,
-    }],
-  };
+  // Wait for file to finalize
+  await new Promise(resolve => setTimeout(resolve, 1500));
+
+  const maxFrames = Math.min(args.maxFrames || 3, 6);
+  const content: Array<{ type: 'text' | 'image'; text?: string; data?: string; mimeType?: string }> = [];
+
+  // Extract key frames using ffmpeg if available, otherwise use sips on a single frame
+  try {
+    // Check if ffmpeg is available for frame extraction
+    let hasFFmpeg = false;
+    try {
+      await execFileAsync('which', ['ffmpeg'], { timeout: 3000 });
+      hasFFmpeg = true;
+    } catch { /* no ffmpeg */ }
+
+    if (hasFFmpeg && duration > 0) {
+      // Extract evenly spaced frames
+      const interval = Math.max(1, Math.floor(duration / maxFrames));
+      const frameDir = join(tmpdir(), `preflight-frames-${Date.now()}`);
+      await mkdir(frameDir, { recursive: true });
+
+      await execFileAsync('ffmpeg', [
+        '-i', recording.tmpPath,
+        '-vf', `fps=1/${interval}`,
+        '-frames:v', String(maxFrames),
+        '-q:v', '8',
+        join(frameDir, 'frame-%02d.jpg'),
+      ], { timeout: 15000 }).catch(() => {});
+
+      // Read extracted frames
+      const { readdir } = await import('node:fs/promises');
+      const frames = (await readdir(frameDir).catch(() => [] as string[]))
+        .filter(f => f.endsWith('.jpg'))
+        .sort()
+        .slice(0, maxFrames);
+
+      for (const frame of frames) {
+        try {
+          const buf = await readFile(join(frameDir, frame));
+          content.push({ type: 'image' as const, data: buf.toString('base64'), mimeType: 'image/jpeg' });
+        } catch { /* skip unreadable frame */ }
+      }
+
+      // Cleanup frame dir
+      for (const frame of frames) {
+        await unlink(join(frameDir, frame)).catch(() => {});
+      }
+      await unlink(frameDir).catch(() => {});
+    }
+  } catch (err) {
+    logger.debug('tool:stopRecording', `Frame extraction failed: ${(err as Error).message}`);
+  }
+
+  // If no frames extracted, take a final screenshot as fallback
+  if (content.length === 0) {
+    try {
+      const { stdout: pngBuffer } = await execSimctlBuffer(['io', device, 'screenshot', '--type=png', '-'], 'tool:stopRecording');
+      // Compress to JPEG
+      const tmpPng = join(tmpdir(), `stoprec-${Date.now()}.png`);
+      const tmpJpg = join(tmpdir(), `stoprec-${Date.now()}.jpg`);
+      await writeFile(tmpPng, pngBuffer);
+      await execFileAsync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '60', tmpPng, '--out', tmpJpg], { timeout: 10000 });
+      const jpgBuf = await readFile(tmpJpg);
+      content.push({ type: 'image' as const, data: jpgBuf.toString('base64'), mimeType: 'image/jpeg' });
+      await unlink(tmpPng).catch(() => {});
+      await unlink(tmpJpg).catch(() => {});
+    } catch {
+      content.push({ type: 'text' as const, text: '(Could not capture final frame)' });
+    }
+  }
+
+  // Handle the video file
+  let videoNote = '';
+  if (args.savePath) {
+    try {
+      const { copyFile } = await import('node:fs/promises');
+      const dir = args.savePath.substring(0, args.savePath.lastIndexOf('/'));
+      if (dir) await mkdir(dir, { recursive: true });
+      await copyFile(recording.tmpPath, args.savePath);
+      videoNote = `\nVideo saved to: ${args.savePath}`;
+    } catch (err) {
+      videoNote = `\nFailed to save video: ${(err as Error).message}`;
+    }
+  }
+
+  // Clean up temp video
+  await unlink(recording.tmpPath).catch(() => {});
+
+  content.push({
+    type: 'text' as const,
+    text: `Recording stopped (${duration}s). ${content.filter(c => c.type === 'image').length} key frame(s) extracted.${videoNote}`,
+  });
+
+  return { content };
 }
 
 // --- navigate_back ---
@@ -162,9 +255,6 @@ export const navigateBackParams = {
 export async function handleNavigateBack(args: { deviceId?: string }) {
   const device = await resolveDevice(args.deviceId);
 
-  // Use Hardware > Shake gesture or Cmd+[ for Safari-like back navigation
-  // Cmd+Left bracket is the standard macOS back navigation shortcut
-  // which the Simulator forwards to the iOS app
   const { pressKey } = await import('../helpers/applescript.js');
   try {
     await pressKey('[', ['command']);
@@ -175,10 +265,8 @@ export async function handleNavigateBack(args: { deviceId?: string }) {
       }],
     };
   } catch {
-    // Fallback: try tapping a common back button location
     const { checkIdbAvailable, idbTap } = await import('../helpers/idb.js');
     if (await checkIdbAvailable()) {
-      // Common iOS back button position: top-left area
       await idbTap(30, 55, device);
       return {
         content: [{

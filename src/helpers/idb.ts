@@ -29,7 +29,22 @@ const IDB_SEARCH_PATHS = [
 export async function checkIdbAvailable(): Promise<boolean> {
   if (idbAvailable !== null) return idbAvailable;
 
-  // Try `which idb` first (respects PATH)
+  // Check env var first (custom idb path)
+  const envPath = process.env.PREFLIGHT_IDB_PATH || process.env.IOS_SIMULATOR_MCP_IDB_PATH;
+  if (envPath) {
+    const { access } = await import('node:fs/promises');
+    try {
+      await access(envPath);
+      idbPath = envPath;
+      idbAvailable = true;
+      logger.debug('idb', `idb found via env var: ${idbPath}`);
+      return true;
+    } catch {
+      logger.warn('idb', `idb path from env var not found: ${envPath}`);
+    }
+  }
+
+  // Try `which idb` (respects PATH)
   try {
     const { stdout } = await execFileAsync('which', ['idb'], {
       encoding: 'utf-8',
@@ -100,9 +115,11 @@ async function runIdb(args: string[], ctx: string): Promise<string> {
  * Tap at simulator screen coordinates using idb.
  * No macOS coordinate mapping needed — idb uses sim points directly.
  */
-export async function idbTap(x: number, y: number, deviceId: string): Promise<void> {
+export async function idbTap(x: number, y: number, deviceId: string, duration?: number): Promise<void> {
   const udid = await resolveUdid(deviceId);
-  await runIdb(['ui', 'tap', '--udid', udid, String(Math.round(x)), String(Math.round(y))], 'idb:tap');
+  const args = ['ui', 'tap', '--udid', udid, String(Math.round(x)), String(Math.round(y))];
+  if (duration !== undefined) args.push('--duration', String(duration));
+  await runIdb(args, 'idb:tap');
 }
 
 /**
@@ -114,16 +131,19 @@ export async function idbSwipe(
   endX: number, endY: number,
   durationMs: number,
   deviceId: string,
+  delta?: number,
 ): Promise<void> {
   const udid = await resolveUdid(deviceId);
   const durationSec = (durationMs / 1000).toFixed(2);
-  await runIdb([
+  const args = [
     'ui', 'swipe',
     '--udid', udid,
     String(Math.round(startX)), String(Math.round(startY)),
     String(Math.round(endX)), String(Math.round(endY)),
     '--duration', durationSec,
-  ], 'idb:swipe');
+  ];
+  if (delta !== undefined) args.push('--delta', String(delta));
+  await runIdb(args, 'idb:swipe');
 }
 
 /**

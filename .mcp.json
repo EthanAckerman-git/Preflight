@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "preflight": {
+      "command": "node",
+      "args": ["/Users/ethanmacpro/Desktop/Preflight-MCP/dist/index.js"],
+      "env": {
+        "LOG_LEVEL": "debug",
+        "PATH": "/Users/ethanmacpro/Library/Python/3.9/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      }
+    }
+  }
+}

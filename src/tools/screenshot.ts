@@ -1,69 +1,71 @@
 import { z } from 'zod';
-import { execSimctlBuffer, execCommand, resolveDevice } from '../helpers/simctl.js';
+import { execSimctlBuffer, resolveDevice } from '../helpers/simctl.js';
 import * as logger from '../helpers/logger.js';
 import { writeFile, mkdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
-// Auto-save directory — always on Desktop for easy access
-const SCREENSHOT_DIR = join(homedir(), 'Desktop', 'SimulatorScreenshots');
-const MAX_BYTES = 2 * 1024 * 1024; // 2MB cap for efficient transmission
+// Optimized for AI chat: small images that fit in context windows
+// Target ~200-400KB JPEG — enough detail for UI analysis, minimal token waste
+const MAX_BYTES = 1.5 * 1024 * 1024; // 1.5MB absolute cap
 
 export const screenshotParams = {
   deviceId: z.string().optional().describe('Device UDID, name, or "booted" (default: booted)'),
-  format: z.enum(['png', 'jpeg']).optional().describe('Image format (default: jpeg)'),
-  savePath: z.string().optional().describe('Optional custom path to save the screenshot. Defaults to ~/Desktop/SimulatorScreenshots/<timestamp>.<format>'),
-  autoDelete: z.boolean().optional().describe('Delete the saved file after returning it (saves disk space). Default: false'),
+  format: z.enum(['png', 'jpeg']).optional().describe('Image format (default: jpeg). JPEG recommended for AI — smaller, faster.'),
+  display: z.enum(['internal', 'external']).optional().describe('Display to capture (default: internal)'),
+  mask: z.enum(['ignored', 'alpha', 'black']).optional().describe('For non-rectangular displays, handle mask by policy'),
+  savePath: z.string().optional().describe('Optional: save a copy to this path on disk'),
 };
 
 /**
- * Compress a PNG buffer to JPEG using sips, capping at ~2MB.
- * Returns the JPEG buffer. Falls back to the original if sips fails.
+ * Compress a PNG buffer to JPEG using sips, optimized for AI chat.
+ * Targets ~200-400KB — enough for UI analysis without wasting tokens.
  */
 async function compressToJpeg(pngBuffer: Buffer): Promise<Buffer> {
   const tmpPng = join(tmpdir(), `simscr-${Date.now()}.png`);
   const tmpJpg = join(tmpdir(), `simscr-${Date.now()}.jpg`);
   try {
     await writeFile(tmpPng, pngBuffer);
-    // Convert to JPEG with sips (macOS built-in)
-    await execFileAsync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '70', tmpPng, '--out', tmpJpg], {
-      timeout: 10000,
-    });
+
+    // First pass: quality 60 (good for AI analysis, small file)
+    await execFileAsync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '60', tmpPng, '--out', tmpJpg], { timeout: 10000 });
     const { readFile: rf } = await import('node:fs/promises');
     let jpgBuffer = await rf(tmpJpg);
 
-    // If still over 2MB, reduce quality further
+    // If still too large, compress harder
     if (jpgBuffer.length > MAX_BYTES) {
-      await execFileAsync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '40', tmpPng, '--out', tmpJpg], {
-        timeout: 10000,
-      });
+      await execFileAsync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '35', tmpPng, '--out', tmpJpg], { timeout: 10000 });
       jpgBuffer = await rf(tmpJpg);
     }
 
     return jpgBuffer;
   } catch (err) {
     logger.debug('tool:screenshot', `JPEG compression failed: ${(err as Error).message}`);
-    return pngBuffer; // fallback to original
+    return pngBuffer;
   } finally {
     await unlink(tmpPng).catch(() => {});
     await unlink(tmpJpg).catch(() => {});
   }
 }
 
-export async function handleScreenshot(args: { deviceId?: string; format?: string; savePath?: string; autoDelete?: boolean }) {
-  const start = Date.now();
+export async function handleScreenshot(args: {
+  deviceId?: string; format?: string; display?: string; mask?: string;
+  savePath?: string;
+}) {
   const device = await resolveDevice(args.deviceId);
-  const requestedFormat = args.format || 'jpeg'; // default to jpeg for efficiency
+  const requestedFormat = args.format || 'jpeg';
 
-  // Always capture as PNG from simctl (highest quality source)
-  const { stdout: pngBuffer } = await execSimctlBuffer(
-    ['io', device, 'screenshot', '--type=png', '-'],
-    'tool:screenshot'
-  );
+  // Capture PNG from simctl (always start with PNG for best quality source)
+  const simctlArgs = ['io', device, 'screenshot', '--type=png'];
+  if (args.display) simctlArgs.push(`--display=${args.display}`);
+  if (args.mask) simctlArgs.push(`--mask=${args.mask}`);
+  simctlArgs.push('-');
+
+  const { stdout: pngBuffer } = await execSimctlBuffer(simctlArgs, 'tool:screenshot');
 
   let outputBuffer: Buffer;
   let mimeType: string;
@@ -79,42 +81,27 @@ export async function handleScreenshot(args: { deviceId?: string; format?: strin
     format = 'png';
   }
 
-  // Auto-save screenshot to Desktop folder
+  // Only save to disk if explicitly requested
   let savedPath = '';
-  try {
-    await mkdir(SCREENSHOT_DIR, { recursive: true });
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const ext = format === 'jpeg' ? 'jpg' : format;
-    const filename = args.savePath || join(SCREENSHOT_DIR, `screenshot-${timestamp}.${ext}`);
-    await writeFile(filename, outputBuffer);
-    savedPath = filename;
-  } catch (err) {
-    logger.debug('tool:screenshot', `Failed to auto-save screenshot: ${(err as Error).message}`);
+  if (args.savePath) {
+    try {
+      const dir = args.savePath.substring(0, args.savePath.lastIndexOf('/'));
+      if (dir) await mkdir(dir, { recursive: true });
+      await writeFile(args.savePath, outputBuffer);
+      savedPath = args.savePath;
+    } catch (err) {
+      logger.debug('tool:screenshot', `Failed to save to ${args.savePath}: ${(err as Error).message}`);
+    }
   }
 
   const base64Data = outputBuffer.toString('base64');
-  logger.toolEnd('simulator_screenshot', Date.now() - start, true);
-
-  // Auto-delete if requested (data already encoded as base64 for transmission)
-  let deleteNote = '';
-  if (args.autoDelete && savedPath) {
-    try {
-      await unlink(savedPath);
-      deleteNote = ' (auto-deleted after encoding)';
-      savedPath = '';
-    } catch { /* ignore */ }
-  }
 
   return {
     content: [
-      {
-        type: 'image' as const,
-        data: base64Data,
-        mimeType,
-      },
+      { type: 'image' as const, data: base64Data, mimeType },
       {
         type: 'text' as const,
-        text: `Screenshot captured (${format}, ${Math.round(outputBuffer.length / 1024)}KB)${savedPath ? `\nSaved to: ${savedPath}` : ''}${deleteNote}`,
+        text: `Screenshot captured (${format}, ${Math.round(outputBuffer.length / 1024)}KB)${savedPath ? `\nSaved to: ${savedPath}` : ''}`,
       },
     ],
   };

@@ -141,3 +141,25 @@ export async function handleOpenUrl(args: { url: string; deviceId?: string }) {
   await execSimctl(['openurl', device, args.url], 'tool:openUrl');
   return { content: [{ type: 'text' as const, text: `Opened URL: ${args.url}` }] };
 }
+
+// --- open_simulator ---
+
+export const openSimulatorParams = {};
+
+export async function handleOpenSimulator() {
+  await execFileAsync('open', ['-a', 'Simulator']);
+  return { content: [{ type: 'text' as const, text: 'Simulator.app opened.' }] };
+}
+
+// --- get_booted_sim_id ---
+
+export const getBootedSimIdParams = {};
+
+export async function handleGetBootedSimId() {
+  const devices = await listDevices('booted');
+  if (devices.length === 0) {
+    return { content: [{ type: 'text' as const, text: 'No booted simulator found.' }] };
+  }
+  const d = devices[0];
+  return { content: [{ type: 'text' as const, text: d.udid }] };
+}

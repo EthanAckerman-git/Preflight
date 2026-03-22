@@ -117,6 +117,7 @@ export async function handleAppInfo(args: { bundleId: string; deviceId?: string 
 
 export const launchAppParams = {
   bundleId: z.string().describe('App bundle identifier to launch'),
+  terminateRunning: z.boolean().optional().describe('Terminate the app first if already running (default: false)'),
   args: z.array(z.string()).optional().describe('Launch arguments to pass to the app'),
   env: z.record(z.string()).optional().describe('Environment variables to set (will be prefixed with SIMCTL_CHILD_)'),
   deviceId: z.string().optional().describe('Device UDID, name, or "booted" (default: booted)'),
@@ -124,11 +125,19 @@ export const launchAppParams = {
 
 export async function handleLaunchApp(args: {
   bundleId: string;
+  terminateRunning?: boolean;
   args?: string[];
   env?: Record<string, string>;
   deviceId?: string;
 }) {
   const device = await resolveDevice(args.deviceId);
+
+  // Terminate first if requested
+  if (args.terminateRunning) {
+    try {
+      await execSimctl(['terminate', device, args.bundleId], 'tool:launchApp');
+    } catch { /* app may not be running, ignore */ }
+  }
 
   if (args.env) {
     for (const [key, value] of Object.entries(args.env)) {
@@ -175,7 +184,7 @@ export async function handleTerminateApp(args: { bundleId: string; deviceId?: st
 // --- install_app ---
 
 export const installAppParams = {
-  path: z.string().describe('Path to .app bundle to install'),
+  path: z.string().describe('Path to .app bundle or .ipa file to install'),
   deviceId: z.string().optional().describe('Device UDID, name, or "booted" (default: booted)'),
 };
 
