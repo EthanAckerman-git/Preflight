@@ -1,0 +1,382 @@
+#!/usr/bin/env node
+
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import * as logger from './helpers/logger.js';
+
+// Tool imports
+import { screenshotParams, handleScreenshot } from './tools/screenshot.js';
+import {
+  listDevicesParams, handleListDevices,
+  bootParams, handleBoot,
+  shutdownParams, handleShutdown,
+  eraseParams, handleErase,
+  openUrlParams, handleOpenUrl,
+} from './tools/device.js';
+import {
+  listAppsParams, handleListApps,
+  appInfoParams, handleAppInfo,
+  launchAppParams, handleLaunchApp,
+  terminateAppParams, handleTerminateApp,
+  installAppParams, handleInstallApp,
+  uninstallAppParams, handleUninstallApp,
+} from './tools/app.js';
+import {
+  tapParams, handleTap,
+  swipeParams, handleSwipe,
+  longPressParams, handleLongPress,
+  typeTextParams, handleTypeText,
+  pressKeyParams, handlePressKey,
+} from './tools/interaction.js';
+import {
+  setLocationParams, handleSetLocation,
+  sendPushParams, handleSendPush,
+  setClipboardParams, handleSetClipboard,
+  getClipboardParams, handleGetClipboard,
+  addMediaParams, handleAddMedia,
+  grantPermissionParams, handleGrantPermission,
+} from './tools/system.js';
+import {
+  setAppearanceParams, handleSetAppearance,
+  overrideStatusBarParams, handleOverrideStatusBar,
+  recordVideoParams, handleRecordVideo,
+  stopRecordingParams, handleStopRecording,
+  navigateBackParams, handleNavigateBack,
+} from './tools/ui.js';
+import {
+  getLogsParams, handleGetLogs,
+  streamLogsParams, handleStreamLogs,
+  getAppContainerParams, handleGetAppContainer,
+  listAppFilesParams, handleListAppFiles,
+  readAppFileParams, handleReadAppFile,
+  getCrashLogsParams, handleGetCrashLogs,
+  diagnoseParams, handleDiagnose,
+  accessibilityAuditParams, handleAccessibilityAudit,
+  getScreenInfoParams, handleGetScreenInfo,
+} from './tools/debug.js';
+
+const server = new McpServer({
+  name: 'ios-simulator',
+  version: '1.0.0',
+});
+
+// Helper to wrap tool handlers with logging and error handling
+function wrapHandler<T>(name: string, handler: (args: T) => Promise<any>) {
+  return async (args: T) => {
+    const start = Date.now();
+    logger.toolStart(name, args);
+    try {
+      const result = await handler(args);
+      logger.toolEnd(name, Date.now() - start, true);
+      return result;
+    } catch (err: unknown) {
+      const e = err as Error;
+      logger.toolEnd(name, Date.now() - start, false);
+      logger.error(`tool:${name}`, e.message, { stack: e.stack });
+      return {
+        content: [{
+          type: 'text' as const,
+          text: `Error: ${e.message}`,
+        }],
+        isError: true,
+      };
+    }
+  };
+}
+
+// ========== Observation Tools ==========
+
+server.tool(
+  'simulator_screenshot',
+  'Take a screenshot of the iOS Simulator screen. Returns the image directly for viewing.',
+  screenshotParams,
+  wrapHandler('simulator_screenshot', handleScreenshot),
+);
+
+server.tool(
+  'simulator_list_devices',
+  'List iOS Simulator devices. Shows name, UDID, state, and runtime.',
+  listDevicesParams,
+  wrapHandler('simulator_list_devices', handleListDevices),
+);
+
+server.tool(
+  'simulator_list_apps',
+  'List all installed apps on the simulator with their bundle IDs.',
+  listAppsParams,
+  wrapHandler('simulator_list_apps', handleListApps),
+);
+
+server.tool(
+  'simulator_app_info',
+  'Get detailed metadata about an installed app (bundle ID, paths, version, etc.).',
+  appInfoParams,
+  wrapHandler('simulator_app_info', handleAppInfo),
+);
+
+server.tool(
+  'simulator_get_clipboard',
+  'Read the text content of the simulator clipboard.',
+  getClipboardParams,
+  wrapHandler('simulator_get_clipboard', handleGetClipboard),
+);
+
+server.tool(
+  'simulator_get_screen_info',
+  'Get diagnostic info about the Simulator window geometry and coordinate mapping. Useful for debugging tap/swipe accuracy.',
+  getScreenInfoParams,
+  wrapHandler('simulator_get_screen_info', handleGetScreenInfo),
+);
+
+// ========== User Interaction Tools ==========
+
+server.tool(
+  'simulator_tap',
+  'Tap at a point on the simulator screen. Coordinates are in simulator screen points (e.g., 0-393 for iPhone width). Take a screenshot first to identify coordinates.',
+  tapParams,
+  wrapHandler('simulator_tap', handleTap),
+);
+
+server.tool(
+  'simulator_swipe',
+  'Swipe/drag from one point to another on the simulator screen. Coordinates are in simulator screen points. Use for scrolling, pulling down, or any drag gesture.',
+  swipeParams,
+  wrapHandler('simulator_swipe', handleSwipe),
+);
+
+server.tool(
+  'simulator_long_press',
+  'Long press at a point on the simulator screen. Useful for context menus, drag-and-drop initiation, etc.',
+  longPressParams,
+  wrapHandler('simulator_long_press', handleLongPress),
+);
+
+server.tool(
+  'simulator_type_text',
+  'Type text into the currently focused text field in the simulator. Make sure a text field is focused first (tap on it).',
+  typeTextParams,
+  wrapHandler('simulator_type_text', handleTypeText),
+);
+
+server.tool(
+  'simulator_press_key',
+  'Press a special key (return, escape, delete, tab, arrows, etc.) with optional modifiers (command, shift, option, control).',
+  pressKeyParams,
+  wrapHandler('simulator_press_key', handlePressKey),
+);
+
+// ========== Device Management Tools ==========
+
+server.tool(
+  'simulator_boot',
+  'Boot an iOS Simulator device. Opens the Simulator app. Use simulator_list_devices to find device names/UDIDs.',
+  bootParams,
+  wrapHandler('simulator_boot', handleBoot),
+);
+
+server.tool(
+  'simulator_shutdown',
+  'Shut down a running simulator device.',
+  shutdownParams,
+  wrapHandler('simulator_shutdown', handleShutdown),
+);
+
+server.tool(
+  'simulator_erase',
+  'Factory reset a simulator device. Erases all content and settings.',
+  eraseParams,
+  wrapHandler('simulator_erase', handleErase),
+);
+
+server.tool(
+  'simulator_open_url',
+  'Open a URL or deep link in the simulator (e.g., "https://example.com" or "myapp://screen").',
+  openUrlParams,
+  wrapHandler('simulator_open_url', handleOpenUrl),
+);
+
+// ========== App Management Tools ==========
+
+server.tool(
+  'simulator_launch_app',
+  'Launch an app by bundle ID. Optionally pass launch arguments and environment variables.',
+  launchAppParams,
+  wrapHandler('simulator_launch_app', handleLaunchApp),
+);
+
+server.tool(
+  'simulator_terminate_app',
+  'Force-terminate a running app by bundle ID.',
+  terminateAppParams,
+  wrapHandler('simulator_terminate_app', handleTerminateApp),
+);
+
+server.tool(
+  'simulator_install_app',
+  'Install a .app bundle onto the simulator from a local file path.',
+  installAppParams,
+  wrapHandler('simulator_install_app', handleInstallApp),
+);
+
+server.tool(
+  'simulator_uninstall_app',
+  'Uninstall an app from the simulator by bundle ID.',
+  uninstallAppParams,
+  wrapHandler('simulator_uninstall_app', handleUninstallApp),
+);
+
+// ========== Developer Debugging Tools ==========
+
+server.tool(
+  'simulator_get_logs',
+  'Get recent device/app logs. Filter by process name, subsystem, log level, time range, and message content. Essential for debugging app behavior.',
+  getLogsParams,
+  wrapHandler('simulator_get_logs', handleGetLogs),
+);
+
+server.tool(
+  'simulator_stream_logs',
+  'Start/read/stop a live log stream. Use action="start" to begin, "read" to get the buffer, "stop" to end. Great for watching app behavior in real-time.',
+  streamLogsParams,
+  wrapHandler('simulator_stream_logs', handleStreamLogs),
+);
+
+server.tool(
+  'simulator_get_app_container',
+  'Get the filesystem path to an app\'s container (bundle, data, or shared groups). Use this to find where the app stores its files.',
+  getAppContainerParams,
+  wrapHandler('simulator_get_app_container', handleGetAppContainer),
+);
+
+server.tool(
+  'simulator_list_app_files',
+  'List files in an app\'s data container. Shows Documents, Library, Preferences, Caches, tmp, etc. Use to find databases, plists, caches.',
+  listAppFilesParams,
+  wrapHandler('simulator_list_app_files', handleListAppFiles),
+);
+
+server.tool(
+  'simulator_read_app_file',
+  'Read a file from an app\'s data container. Handles plists (converts to JSON), SQLite databases (shows schema), and text files. Specify path relative to data container.',
+  readAppFileParams,
+  wrapHandler('simulator_read_app_file', handleReadAppFile),
+);
+
+server.tool(
+  'simulator_get_crash_logs',
+  'Retrieve crash reports from ~/Library/Logs/DiagnosticReports/. Shows stack traces, exception info, and thread states. Filter by process name.',
+  getCrashLogsParams,
+  wrapHandler('simulator_get_crash_logs', handleGetCrashLogs),
+);
+
+server.tool(
+  'simulator_diagnose',
+  'Generate a diagnostic summary: booted devices, Xcode version, disk usage, and system info.',
+  diagnoseParams,
+  wrapHandler('simulator_diagnose', handleDiagnose),
+);
+
+server.tool(
+  'simulator_accessibility_audit',
+  'Get the accessibility element tree of the current Simulator screen. Shows roles, labels, values, and positions of UI elements.',
+  accessibilityAuditParams,
+  wrapHandler('simulator_accessibility_audit', handleAccessibilityAudit),
+);
+
+// ========== System Simulation Tools ==========
+
+server.tool(
+  'simulator_set_location',
+  'Set the simulated GPS location (latitude, longitude). Useful for testing location-based features.',
+  setLocationParams,
+  wrapHandler('simulator_set_location', handleSetLocation),
+);
+
+server.tool(
+  'simulator_send_push',
+  'Send a push notification to an app. Provide the full APNs payload JSON (e.g., {"aps": {"alert": "Hello"}}).',
+  sendPushParams,
+  wrapHandler('simulator_send_push', handleSendPush),
+);
+
+server.tool(
+  'simulator_set_clipboard',
+  'Set text on the simulator clipboard. Useful for pasting content into apps.',
+  setClipboardParams,
+  wrapHandler('simulator_set_clipboard', handleSetClipboard),
+);
+
+server.tool(
+  'simulator_add_media',
+  'Add photos or videos to the simulator\'s camera roll from local file paths.',
+  addMediaParams,
+  wrapHandler('simulator_add_media', handleAddMedia),
+);
+
+server.tool(
+  'simulator_grant_permission',
+  'Grant, revoke, or reset app permissions (camera, location, photos, contacts, microphone, etc.).',
+  grantPermissionParams,
+  wrapHandler('simulator_grant_permission', handleGrantPermission),
+);
+
+// ========== UI Configuration Tools ==========
+
+server.tool(
+  'simulator_set_appearance',
+  'Switch the simulator between light and dark mode.',
+  setAppearanceParams,
+  wrapHandler('simulator_set_appearance', handleSetAppearance),
+);
+
+server.tool(
+  'simulator_override_status_bar',
+  'Override the simulator status bar: set time, battery, signal bars, carrier name, network type. Use clear=true to reset.',
+  overrideStatusBarParams,
+  wrapHandler('simulator_override_status_bar', handleOverrideStatusBar),
+);
+
+server.tool(
+  'simulator_record_video',
+  'Start recording the simulator screen to a video file. Use simulator_stop_recording to stop. Supports H.264 and HEVC codecs.',
+  recordVideoParams,
+  wrapHandler('simulator_record_video', handleRecordVideo),
+);
+
+server.tool(
+  'simulator_stop_recording',
+  'Stop an active video recording and save the file.',
+  stopRecordingParams,
+  wrapHandler('simulator_stop_recording', handleStopRecording),
+);
+
+server.tool(
+  'simulator_navigate_back',
+  'Navigate back in the current app. Sends Cmd+[ (standard back navigation). Works in Safari and apps with standard UINavigationController. Workaround for edge-swipe-back gesture limitation.',
+  navigateBackParams,
+  wrapHandler('simulator_navigate_back', handleNavigateBack),
+);
+
+// ========== Start Server ==========
+
+async function main() {
+  logger.info('server', 'iOS Simulator MCP server starting...');
+
+  // Detect idb for cursor-free touch injection
+  const { checkIdbAvailable } = await import('./helpers/idb.js');
+  const hasIdb = await checkIdbAvailable();
+  if (hasIdb) {
+    logger.info('server', 'idb detected — using cursor-free touch injection (IndigoHID)');
+  } else {
+    logger.warn('server', 'idb not found — using CGEvent fallback (cursor may flicker). Install for best experience: brew tap facebook/fb && brew install idb-companion && pip3 install fb-idb');
+  }
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  logger.info('server', 'iOS Simulator MCP server connected and ready.');
+}
+
+main().catch((err) => {
+  logger.error('server', 'Fatal error', { error: err.message, stack: err.stack });
+  process.exit(1);
+});

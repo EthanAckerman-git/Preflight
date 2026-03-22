@@ -1,0 +1,25 @@
+node_modules/
+dist/
+*.js.map
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# Debug
+*.log
+
+# Build artifacts
+demo-app/MCPDemo.xcodeproj/xcuserdata/
+demo-app/MCPDemo.xcodeproj/project.xcworkspace/xcuserdata/
+demo-app/build/
+DerivedData/
+
+# Claude Code local settings
+.claude/
+.mcp.json

@@ -1,0 +1,22 @@
+{
+  "name": "ios-simulator-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for interacting with iOS Simulator from Claude Code",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": "dist/index.js",
+  "scripts": {
+    "build": "tsc && swiftc src/helpers/mouse-events.swift -o dist/mouse-events",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "postinstall": "which idb > /dev/null 2>&1 || echo '\\n[XcodetesterMCP] Optional: Install idb for cursor-free touch injection:\\n  brew tap facebook/fb && brew install idb-companion\\n  pip3 install fb-idb\\n'"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}
