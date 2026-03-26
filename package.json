@@ -1,6 +1,7 @@
 {
   "name": "preflight-ios-mcp",
-  "version": "1.0.0",
+  "mcpName": "io.github.EthanAckerman-git/preflight-ios-mcp",
+  "version": "1.0.1",
   "description": "The most comprehensive MCP server for iOS Simulator automation — 57 tools for AI-powered iOS development. Works with Claude Code, Cursor, Windsurf, VS Code, and any MCP client.",
   "type": "module",
   "main": "dist/index.js",

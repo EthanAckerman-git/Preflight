@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.EthanAckerman-git/preflight-ios-mcp",
+  "description": "57 tools for AI-powered iOS Simulator automation — tap, swipe, type, screenshots, and more.",
+  "repository": {
+    "url": "https://github.com/EthanAckerman-git/Preflight",
+    "source": "github"
+  },
+  "version": "1.0.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "preflight-ios-mcp",
+      "version": "1.0.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
