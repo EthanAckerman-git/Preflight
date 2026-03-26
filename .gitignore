@@ -20,5 +20,8 @@ demo-app/MCPDemo.xcodeproj/project.xcworkspace/xcuserdata/
 demo-app/build/
 DerivedData/
 
+# Auth tokens
+.npmrc
+
 # Claude Code local settings
 .claude/

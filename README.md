@@ -6,6 +6,9 @@ The most comprehensive MCP (Model Context Protocol) server for iOS Simulator aut
 
 Inspired by [Playwright MCP](https://github.com/anthropics/mcp-server-playwright) for web automation — Preflight brings the same structured accessibility-first approach to iOS.
 
+[![npm version](https://img.shields.io/npm/v/preflight-ios-mcp)](https://www.npmjs.com/package/preflight-ios-mcp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ## Why Preflight?
 
 - **No disk clutter** — Screenshots and video frames return directly in chat. No folders filling up.
@@ -32,6 +35,12 @@ pip3 install fb-idb
 
 > Without idb, the server falls back to CGEvent mouse injection (works but briefly moves your cursor).
 
+### Install via npm (recommended)
+
+```bash
+npm install -g preflight-ios-mcp
+```
+
 ### Build from Source
 
 ```bash
@@ -43,32 +52,29 @@ npm run build
 
 ## Setup by IDE / AI Tool
 
+> Add your Python bin directory to `PATH` if idb was installed via pip (e.g., `~/Library/Python/3.x/bin`).
+
 ### Claude Code
 
 ```bash
-# Option 1: CLI
-claude mcp add preflight node /path/to/Preflight/dist/index.js
-
-# Option 2: .mcp.json in your project root
+claude mcp add preflight -- npx preflight-ios-mcp
 ```
 
-**.mcp.json:**
+Or add to **.mcp.json** in your project root:
+
 ```json
 {
   "mcpServers": {
     "preflight": {
-      "command": "node",
-      "args": ["/path/to/Preflight/dist/index.js"],
+      "command": "npx",
+      "args": ["preflight-ios-mcp"],
       "env": {
-        "LOG_LEVEL": "info",
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
       }
     }
   }
 }
 ```
-
-> Add your Python bin directory to `PATH` if idb was installed via pip (e.g., `~/Library/Python/3.x/bin`).
 
 ### Cursor
 
@@ -78,8 +84,8 @@ Add to **~/.cursor/mcp.json** (global) or **.cursor/mcp.json** (per-project):
 {
   "mcpServers": {
     "preflight": {
-      "command": "node",
-      "args": ["/path/to/Preflight/dist/index.js"],
+      "command": "npx",
+      "args": ["preflight-ios-mcp"],
       "env": {
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
       }
@@ -98,8 +104,8 @@ Add to **~/.codeium/windsurf/mcp_config.json**:
 {
   "mcpServers": {
     "preflight": {
-      "command": "node",
-      "args": ["/path/to/Preflight/dist/index.js"],
+      "command": "npx",
+      "args": ["preflight-ios-mcp"],
       "env": {
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
       }
@@ -118,8 +124,8 @@ Add to **.vscode/mcp.json** in your project:
 {
   "servers": {
     "preflight": {
-      "command": "node",
-      "args": ["/path/to/Preflight/dist/index.js"],
+      "command": "npx",
+      "args": ["preflight-ios-mcp"],
       "env": {
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
       }
@@ -134,8 +140,8 @@ For **Cline** (VS Code extension), add to **~/Library/Application Support/Code/U
 {
   "mcpServers": {
     "preflight": {
-      "command": "node",
-      "args": ["/path/to/Preflight/dist/index.js"],
+      "command": "npx",
+      "args": ["preflight-ios-mcp"],
       "env": {
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
       }
@@ -153,8 +159,8 @@ Add to **~/.config/zed/settings.json**:
   "context_servers": {
     "preflight": {
       "command": {
-        "path": "node",
-        "args": ["/path/to/Preflight/dist/index.js"],
+        "path": "npx",
+        "args": ["preflight-ios-mcp"],
         "env": {
           "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
         }
@@ -169,7 +175,7 @@ Add to **~/.config/zed/settings.json**:
 Preflight uses the standard MCP stdio transport. Configure your client to run:
 
 ```bash
-node /path/to/Preflight/dist/index.js
+npx preflight-ios-mcp
 ```
 
 Set the `PATH` environment variable to include idb's location for cursor-free touch injection.

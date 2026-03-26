@@ -1,18 +1,38 @@
 {
-  "name": "preflight-mcp",
+  "name": "preflight-ios-mcp",
   "version": "1.0.0",
   "description": "The most comprehensive MCP server for iOS Simulator automation — 57 tools for AI-powered iOS development. Works with Claude Code, Cursor, Windsurf, VS Code, and any MCP client.",
   "type": "module",
   "main": "dist/index.js",
-  "bin": "dist/index.js",
+  "bin": {
+    "preflight-ios-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EthanAckerman-git/Preflight.git"
+  },
+  "homepage": "https://github.com/EthanAckerman-git/Preflight",
+  "bugs": {
+    "url": "https://github.com/EthanAckerman-git/Preflight/issues"
+  },
+  "author": "Ethan Ackerman",
   "scripts": {
     "build": "tsc && swiftc src/helpers/mouse-events.swift -o dist/mouse-events",
     "start": "node dist/index.js",
     "dev": "tsc --watch",
+    "prepublishOnly": "npm run build",
     "postinstall": "which idb > /dev/null 2>&1 || echo '\\n[Preflight MCP] Optional: Install idb for cursor-free touch injection:\\n  brew tap facebook/fb && brew install idb-companion\\n  pip3 install fb-idb\\n'"
   },
-  "keywords": ["mcp", "ios", "simulator", "xcode", "testing", "automation", "claude", "ai", "accessibility", "debugging"],
+  "keywords": ["mcp", "model-context-protocol", "ios", "simulator", "xcode", "testing", "automation", "claude", "cursor", "windsurf", "ai", "accessibility", "debugging", "playwright"],
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.0",
     "zod": "^3.23.0"
