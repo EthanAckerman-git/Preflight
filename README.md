@@ -265,7 +265,7 @@ Set the `PATH` environment variable to include idb's location for cursor-free to
 | `simulator_record_video` | Start screen recording. On stop, key frames are extracted as images for AI chat. |
 | `simulator_stop_recording` | Stop recording. Returns key frames inline (no disk clutter). Optional `savePath` to keep the video. |
 
-### Advanced Debugging & Testing (14 tools)
+### Advanced Debugging & Testing (18 tools)
 
 | Tool | Description |
 |------|-------------|
