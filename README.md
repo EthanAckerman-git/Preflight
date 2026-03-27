@@ -2,7 +2,7 @@
 
 The most comprehensive MCP (Model Context Protocol) server for iOS Simulator automation. Gives AI agents like Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible tool full control over iOS Simulators — tap, swipe, type, read accessibility trees, inspect app data, capture screenshots, record video, manage devices, and debug apps in real time.
 
-**82 tools** across 15 categories. Zero cursor interference — works silently in the background while you use your Mac.
+**82 tools** across 14 categories. Zero cursor interference — works silently in the background while you use your Mac.
 
 Inspired by [Playwright MCP](https://github.com/anthropics/mcp-server-playwright) for web automation — Preflight brings the same structured accessibility-first approach to iOS.
 

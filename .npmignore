@@ -1,0 +1,11 @@
+src/
+demo-app/
+docs/
+.github/
+*.ts
+!dist/**
+tsconfig.json
+.mcpregistry_*
+.env
+CLAUDE.md
+server.json

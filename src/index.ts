@@ -118,7 +118,7 @@ const filteredTools = new Set(
 
 const server = new McpServer({
   name: 'preflight-mcp',
-  version: '1.0.0',
+  version: '2.0.0',
 });
 
 // Register a tool, skipping if it's in the filtered list
