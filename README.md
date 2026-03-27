@@ -292,10 +292,10 @@ Set the `PATH` environment variable to include idb's location for cursor-free to
 
 | Tool | Description |
 |------|-------------|
-| `simulator_set_reduce_motion` | Toggle Reduce Motion accessibility setting. |
-| `simulator_set_smart_invert` | Toggle Smart Invert Colors. |
-| `simulator_set_bold_text` | Toggle Bold Text. |
-| `simulator_set_reduce_transparency` | Toggle Reduce Transparency. |
+| `simulator_set_reduce_motion` | Toggle Reduce Motion accessibility setting (via defaults write + notification). |
+| `simulator_set_smart_invert` | Toggle Smart Invert Colors (via defaults write + notification). |
+| `simulator_set_bold_text` | Toggle Bold Text (via defaults write + notification). |
+| `simulator_set_reduce_transparency` | Toggle Reduce Transparency (via defaults write + notification). |
 
 ### Device Creation & Management (4 tools)
 
@@ -306,7 +306,7 @@ Set the `PATH` environment variable to include idb's location for cursor-free to
 | `simulator_rename_device` | Rename an existing device. |
 | `simulator_clone_device` | Clone a device with all its state. |
 
-### StoreKit Testing (6 tools)
+### StoreKit Testing (6 tools) — Xcode 14-16
 
 | Tool | Description |
 |------|-------------|

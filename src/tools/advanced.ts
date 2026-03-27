@@ -384,7 +384,8 @@ export const reduceMotionParams = {
 
 export async function handleReduceMotion(args: { enabled: boolean; deviceId?: string }) {
   const device = await resolveDevice(args.deviceId);
-  await execSimctl(['ui', device, 'reduce_motion', args.enabled ? 'enabled' : 'disabled'], 'tool:reduceMotion');
+  await execSimctl(['spawn', device, 'defaults', 'write', 'com.apple.Accessibility', 'ReduceMotionEnabled', '-bool', args.enabled ? 'true' : 'false'], 'tool:reduceMotion');
+  await execSimctl(['spawn', device, 'notifyutil', '-p', 'com.apple.accessibility.reduceMotionStatusDidChange'], 'tool:reduceMotion');
   return { content: [{ type: 'text' as const, text: `Reduce Motion ${args.enabled ? 'enabled' : 'disabled'}.` }] };
 }
 
@@ -397,7 +398,8 @@ export const smartInvertParams = {
 
 export async function handleSmartInvert(args: { enabled: boolean; deviceId?: string }) {
   const device = await resolveDevice(args.deviceId);
-  await execSimctl(['ui', device, 'smart_invert', args.enabled ? 'enabled' : 'disabled'], 'tool:smartInvert');
+  await execSimctl(['spawn', device, 'defaults', 'write', 'com.apple.Accessibility', 'AXSSystemUIProcessAppSmartInvertEnabledPreference', '-bool', args.enabled ? 'true' : 'false'], 'tool:smartInvert');
+  await execSimctl(['spawn', device, 'notifyutil', '-p', 'com.apple.accessibility.invertColorsStatusDidChange'], 'tool:smartInvert');
   return { content: [{ type: 'text' as const, text: `Smart Invert ${args.enabled ? 'enabled' : 'disabled'}.` }] };
 }
 
@@ -410,7 +412,8 @@ export const boldTextParams = {
 
 export async function handleBoldText(args: { enabled: boolean; deviceId?: string }) {
   const device = await resolveDevice(args.deviceId);
-  await execSimctl(['ui', device, 'bold_text', args.enabled ? 'enabled' : 'disabled'], 'tool:boldText');
+  await execSimctl(['spawn', device, 'defaults', 'write', 'com.apple.Accessibility', 'BoldTextEnabled', '-bool', args.enabled ? 'true' : 'false'], 'tool:boldText');
+  await execSimctl(['spawn', device, 'notifyutil', '-p', 'com.apple.accessibility.boldTextStatusDidChange'], 'tool:boldText');
   return { content: [{ type: 'text' as const, text: `Bold Text ${args.enabled ? 'enabled' : 'disabled'}.` }] };
 }
 
@@ -423,7 +426,8 @@ export const reduceTransparencyParams = {
 
 export async function handleReduceTransparency(args: { enabled: boolean; deviceId?: string }) {
   const device = await resolveDevice(args.deviceId);
-  await execSimctl(['ui', device, 'reduce_transparency', args.enabled ? 'enabled' : 'disabled'], 'tool:reduceTransparency');
+  await execSimctl(['spawn', device, 'defaults', 'write', 'com.apple.Accessibility', 'EnhancedBackgroundContrastEnabled', '-bool', args.enabled ? 'true' : 'false'], 'tool:reduceTransparency');
+  await execSimctl(['spawn', device, 'notifyutil', '-p', 'com.apple.accessibility.reduceTransparencyStatusDidChange'], 'tool:reduceTransparency');
   return { content: [{ type: 'text' as const, text: `Reduce Transparency ${args.enabled ? 'enabled' : 'disabled'}.` }] };
 }
 

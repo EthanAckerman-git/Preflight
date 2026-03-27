@@ -154,7 +154,7 @@ export async function handleNetworkCapture(args: {
   const duration = Math.min(args.duration || 3, 10);
   const results: string[] = [];
 
-  // Use netstat inside simulator for connection info
+  // Try netstat inside simulator first, fall back to host-side lsof
   try {
     const { stdout } = await execSimctl(
       ['spawn', device, 'netstat', '-an', '-p', 'tcp'],
@@ -163,10 +163,17 @@ export async function handleNetworkCapture(args: {
     const lines = stdout.split('\n').filter(l => l.includes('ESTABLISHED') || l.includes('LISTEN') || l.includes('Active'));
     results.push(`Active TCP connections:\n${lines.slice(0, 30).join('\n') || '(none)'}`);
   } catch {
-    results.push('TCP connections: unable to query (netstat not available in simulator)');
+    // Fallback: use host-side lsof to show network connections
+    try {
+      const { stdout } = await execFileAsync('lsof', ['-i', '-n', '-P'], { encoding: 'utf-8', timeout: 5000 });
+      const lines = stdout.split('\n').filter(l => l.includes('ESTABLISHED') || l.includes('LISTEN')).slice(0, 20);
+      results.push(`Active host connections (simulator shares host network):\n${lines.join('\n') || '(none)'}`);
+    } catch {
+      results.push('TCP connections: unable to query');
+    }
   }
 
-  // DNS resolution test
+  // DNS resolution test — try simulator spawn first, fall back to host
   try {
     const { stdout } = await execSimctl(
       ['spawn', device, 'nslookup', 'apple.com'],
@@ -175,7 +182,13 @@ export async function handleNetworkCapture(args: {
     const serverLine = stdout.split('\n').find(l => l.includes('Server:'));
     results.push(`\nDNS: ${serverLine || 'working'}`);
   } catch {
-    results.push('\nDNS: resolution failed (may be offline)');
+    try {
+      const { stdout } = await execFileAsync('host', ['apple.com'], { encoding: 'utf-8', timeout: 5000 });
+      const firstLine = stdout.split('\n')[0];
+      results.push(`\nDNS: ${firstLine || 'working'}`);
+    } catch {
+      results.push('\nDNS: resolution failed (may be offline)');
+    }
   }
 
   // Check for network interfaces from host perspective

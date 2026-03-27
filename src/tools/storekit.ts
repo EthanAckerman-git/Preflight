@@ -16,7 +16,7 @@ export async function handleStorekitConfig(args: { action: 'enable' | 'disable';
     return { content: [{ type: 'text' as const, text: `StoreKit testing ${args.action}d.` }] };
   } catch (err: unknown) {
     const e = err as { message?: string };
-    return { content: [{ type: 'text' as const, text: `StoreKit ${args.action} failed: ${e.message}\n\nRequires Xcode 14+ with StoreKit testing support.` }] };
+    return { content: [{ type: 'text' as const, text: `StoreKit ${args.action} failed: ${e.message}\n\nRequires Xcode 14-16 with StoreKit testing CLI support. Not available in Xcode 26+.` }] };
   }
 }
 
@@ -33,7 +33,7 @@ export async function handleStorekitTransactions(args: { deviceId?: string }) {
     return { content: [{ type: 'text' as const, text: stdout.trim() || 'No transactions found.' }] };
   } catch (err: unknown) {
     const e = err as { message?: string };
-    return { content: [{ type: 'text' as const, text: `Failed to list transactions: ${e.message}\n\nRequires Xcode 14+ with StoreKit testing support.` }] };
+    return { content: [{ type: 'text' as const, text: `Failed to list transactions: ${e.message}\n\nRequires Xcode 14-16 with StoreKit testing CLI support. Not available in Xcode 26+.` }] };
   }
 }
 
@@ -50,7 +50,7 @@ export async function handleStorekitDeleteTransactions(args: { deviceId?: string
     return { content: [{ type: 'text' as const, text: 'All StoreKit transactions deleted.' }] };
   } catch (err: unknown) {
     const e = err as { message?: string };
-    return { content: [{ type: 'text' as const, text: `Failed to delete transactions: ${e.message}\n\nRequires Xcode 14+ with StoreKit testing support.` }] };
+    return { content: [{ type: 'text' as const, text: `Failed to delete transactions: ${e.message}\n\nRequires Xcode 14-16 with StoreKit testing CLI support. Not available in Xcode 26+.` }] };
   }
 }
 
@@ -116,6 +116,6 @@ export async function handleStorekitResetEligibility(args: { deviceId?: string }
     return { content: [{ type: 'text' as const, text: 'Introductory offer eligibility reset for all products.' }] };
   } catch (err: unknown) {
     const e = err as { message?: string };
-    return { content: [{ type: 'text' as const, text: `Reset eligibility failed: ${e.message}\n\nRequires Xcode 14+ with StoreKit testing support.` }] };
+    return { content: [{ type: 'text' as const, text: `Reset eligibility failed: ${e.message}\n\nRequires Xcode 14-16 with StoreKit testing CLI support. Not available in Xcode 26+.` }] };
   }
 }
