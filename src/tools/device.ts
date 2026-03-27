@@ -163,3 +163,78 @@ export async function handleGetBootedSimId() {
   const d = devices[0];
   return { content: [{ type: 'text' as const, text: d.udid }] };
 }
+
+// --- create_device ---
+
+export const createDeviceParams = {
+  name: z.string().describe('Name for the new device (e.g., "My Test iPhone")'),
+  deviceType: z.string().describe('Device type (e.g., "iPhone 16", "iPad Air"). Use simulator_list_devices to see available types.'),
+  runtime: z.string().optional().describe('Runtime identifier (e.g., "iOS-18-0"). Default: latest available iOS runtime.'),
+};
+
+export async function handleCreateDevice(args: { name: string; deviceType: string; runtime?: string }) {
+  let runtime = args.runtime;
+  if (!runtime) {
+    // Find latest available iOS runtime
+    const { stdout } = await execFileAsync('xcrun', ['simctl', 'list', '-j', 'runtimes'], {
+      encoding: 'utf-8', timeout: 10000,
+    });
+    const data = JSON.parse(stdout);
+    const iosRuntimes = (data.runtimes as any[])
+      .filter((r: any) => r.isAvailable && r.name.includes('iOS'))
+      .sort((a: any, b: any) => (b.version || '').localeCompare(a.version || ''));
+    if (iosRuntimes.length === 0) throw new Error('No available iOS runtimes found. Install one via Xcode.');
+    runtime = iosRuntimes[0].identifier;
+  }
+
+  const { stdout } = await execSimctl(['create', args.name, args.deviceType, runtime!], 'tool:createDevice');
+  return {
+    content: [{
+      type: 'text' as const,
+      text: `Device created: "${args.name}" (UDID: ${stdout.trim()})\nRuntime: ${runtime}\n\nUse simulator_boot with this name or UDID to start it.`,
+    }],
+  };
+}
+
+// --- delete_device ---
+
+export const deleteDeviceParams = {
+  deviceId: z.string().describe('Device UDID or name to delete permanently'),
+};
+
+export async function handleDeleteDevice(args: { deviceId: string }) {
+  const device = await resolveDevice(args.deviceId);
+  await execSimctl(['delete', device], 'tool:deleteDevice');
+  return { content: [{ type: 'text' as const, text: 'Device deleted permanently.' }] };
+}
+
+// --- rename_device ---
+
+export const renameDeviceParams = {
+  deviceId: z.string().describe('Device UDID or name'),
+  newName: z.string().describe('New name for the device'),
+};
+
+export async function handleRenameDevice(args: { deviceId: string; newName: string }) {
+  const device = await resolveDevice(args.deviceId);
+  await execSimctl(['rename', device, args.newName], 'tool:renameDevice');
+  return { content: [{ type: 'text' as const, text: `Device renamed to "${args.newName}".` }] };
+}
+
+// --- clone_device ---
+
+export const cloneDeviceParams = {
+  deviceId: z.string().describe('Device UDID or name to clone'),
+  newName: z.string().describe('Name for the cloned device'),
+};
+
+export async function handleCloneDevice(args: { deviceId: string; newName: string }) {
+  const device = await resolveDevice(args.deviceId);
+  const { stdout } = await execSimctl(['clone', device, args.newName], 'tool:cloneDevice');
+  return {
+    content: [{
+      type: 'text' as const,
+      text: `Device cloned as "${args.newName}" (UDID: ${stdout.trim()}). The clone has the same state as the original.`,
+    }],
+  };
+}

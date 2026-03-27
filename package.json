@@ -1,8 +1,8 @@
 {
   "name": "preflight-ios-mcp",
   "mcpName": "io.github.EthanAckerman-git/preflight-ios-mcp",
-  "version": "1.0.1",
-  "description": "The most comprehensive MCP server for iOS Simulator automation — 57 tools for AI-powered iOS development. Works with Claude Code, Cursor, Windsurf, VS Code, and any MCP client.",
+  "version": "2.0.0",
+  "description": "The most comprehensive MCP server for iOS Simulator automation — 82 tools for AI-powered iOS development. Works with Claude Code, Cursor, Windsurf, VS Code, and any MCP client.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -29,7 +29,7 @@
     "prepublishOnly": "npm run build",
     "postinstall": "which idb > /dev/null 2>&1 || echo '\\n[Preflight MCP] Optional: Install idb for cursor-free touch injection:\\n  brew tap facebook/fb && brew install idb-companion\\n  pip3 install fb-idb\\n'"
   },
-  "keywords": ["mcp", "model-context-protocol", "ios", "simulator", "xcode", "testing", "automation", "claude", "cursor", "windsurf", "ai", "accessibility", "debugging", "playwright"],
+  "keywords": ["mcp", "model-context-protocol", "ios", "simulator", "xcode", "testing", "automation", "claude", "cursor", "windsurf", "ai", "accessibility", "debugging", "playwright", "storekit", "network", "profiling", "memory"],
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"

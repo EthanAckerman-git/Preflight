@@ -1,5 +1,8 @@
-import { execSimctlBuffer, runAppleScript } from './simctl.js';
+import { execSimctl, runAppleScript } from './simctl.js';
 import * as logger from './logger.js';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { readFile, unlink } from 'node:fs/promises';
 
 export interface WindowGeometry {
   windowX: number;
@@ -63,11 +66,11 @@ export async function getDeviceScreenDimensions(device: string): Promise<{
   pixelWidth: number;
   pixelHeight: number;
 }> {
-  // Take a screenshot and get its pixel dimensions
-  const { stdout } = await execSimctlBuffer(
-    ['io', device, 'screenshot', '--type=png', '-'],
-    'coordinate-mapper'
-  );
+  // Take a screenshot and get its pixel dimensions (temp file to avoid stdout piping issues)
+  const tmpPath = join(tmpdir(), `simscr-dim-${Date.now()}.png`);
+  await execSimctl(['io', device, 'screenshot', '--type=png', tmpPath], 'coordinate-mapper');
+  const stdout = await readFile(tmpPath);
+  await unlink(tmpPath).catch(() => {});
 
   // Parse PNG header to get dimensions (IHDR chunk at offset 16)
   // PNG signature (8 bytes) + IHDR length (4 bytes) + "IHDR" (4 bytes) + width (4 bytes) + height (4 bytes)

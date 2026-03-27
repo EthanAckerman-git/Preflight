@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { execSimctl, execCommand, resolveDevice } from '../helpers/simctl.js';
+import { execSimctl, execCommand, resolveDevice, runAppleScript } from '../helpers/simctl.js';
 import * as logger from '../helpers/logger.js';
 import { writeFile, mkdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -127,7 +127,21 @@ export async function handleLocationRoute(args: {
     return { content: [{ type: 'text' as const, text: 'At least 2 waypoints required.' }] };
   }
 
-  const waypointData = args.waypoints.map(w => `${w.lat},${w.lng}`).join('\n') + '\n';
+  // Generate proper GPX XML for simctl location start (incremental timestamps for movement)
+  const baseTime = Date.now();
+  const gpxWaypoints = args.waypoints.map((w, i) =>
+    `      <trkpt lat="${w.lat}" lon="${w.lng}"><time>${new Date(baseTime + i * 1000).toISOString()}</time></trkpt>`
+  ).join('\n');
+  const gpxData = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="preflight-mcp">
+  <trk>
+    <name>Preflight Route</name>
+    <trkseg>
+${gpxWaypoints}
+    </trkseg>
+  </trk>
+</gpx>
+`;
 
   const cmdArgs = ['simctl', 'location', device, 'start'];
   if (args.speed) cmdArgs.push('--speed=' + args.speed);
@@ -143,7 +157,7 @@ export async function handleLocationRoute(args: {
         if (code === 0) resolve();
         else reject(new Error(stderr || `exit code ${code}`));
       });
-      child.stdin.write(waypointData);
+      child.stdin.write(gpxData);
       child.stdin.end();
     });
 
@@ -236,28 +250,43 @@ export async function handleMemoryWarning(args: { deviceId?: string }) {
 // --- biometric_enrollment ---
 
 export const biometricParams = {
-  enrolled: z.boolean().describe('Whether Face ID / Touch ID is enrolled'),
+  action: z.enum(['enroll', 'unenroll', 'match', 'fail']).optional().describe('"enroll" to enable biometrics, "unenroll" to disable, "match" to simulate successful auth, "fail" to simulate failed auth'),
+  enrolled: z.boolean().optional().describe('(Deprecated: use action instead) Whether Face ID / Touch ID is enrolled'),
   deviceId: z.string().optional().describe('Device (default: booted)'),
 };
 
-export async function handleBiometric(args: { enrolled: boolean; deviceId?: string }) {
+export async function handleBiometric(args: { action?: string; enrolled?: boolean; deviceId?: string }) {
   const device = await resolveDevice(args.deviceId);
-  // Use notifyutil to toggle biometric enrollment
+
+  // Backward compat: map enrolled boolean to action
+  let action = args.action;
+  if (!action && args.enrolled !== undefined) {
+    action = args.enrolled ? 'enroll' : 'unenroll';
+  }
+  if (!action) {
+    return { content: [{ type: 'text' as const, text: 'Provide action ("enroll", "unenroll", "match", or "fail") or enrolled (true/false).' }] };
+  }
+
   try {
-    const val = args.enrolled ? '1' : '0';
-    await execSimctl(
-      ['spawn', device, 'notifyutil', '-s', 'com.apple.BiometricKit.enrollmentChanged', val],
-      'tool:biometric'
-    );
-    return {
-      content: [{
-        type: 'text' as const,
-        text: `Biometric enrollment set to ${args.enrolled ? 'enrolled' : 'not enrolled'}.`,
-      }],
-    };
+    switch (action) {
+      case 'enroll':
+        await execSimctl(['spawn', device, 'notifyutil', '-s', 'com.apple.BiometricKit.enrollmentChanged', '1'], 'tool:biometric');
+        return { content: [{ type: 'text' as const, text: 'Biometric enrollment enabled (Face ID / Touch ID enrolled).' }] };
+      case 'unenroll':
+        await execSimctl(['spawn', device, 'notifyutil', '-s', 'com.apple.BiometricKit.enrollmentChanged', '0'], 'tool:biometric');
+        return { content: [{ type: 'text' as const, text: 'Biometric enrollment disabled.' }] };
+      case 'match':
+        await execSimctl(['spawn', device, 'notifyutil', '-p', 'com.apple.BiometricKit_Sim.fingerTouch.match'], 'tool:biometric');
+        return { content: [{ type: 'text' as const, text: 'Biometric match triggered — app should receive successful authentication.' }] };
+      case 'fail':
+        await execSimctl(['spawn', device, 'notifyutil', '-p', 'com.apple.BiometricKit_Sim.fingerTouch.nomatch'], 'tool:biometric');
+        return { content: [{ type: 'text' as const, text: 'Biometric failure triggered — app should receive authentication failure.' }] };
+      default:
+        return { content: [{ type: 'text' as const, text: `Unknown action: ${action}` }] };
+    }
   } catch (err: unknown) {
     const e = err as { message?: string };
-    return { content: [{ type: 'text' as const, text: `Biometric enrollment change failed: ${e.message}. Use Simulator > Features > Face ID/Touch ID menu.` }] };
+    return { content: [{ type: 'text' as const, text: `Biometric action failed: ${e.message}. Use Simulator > Features > Face ID/Touch ID menu as alternative.` }] };
   }
 }
 
@@ -344,4 +373,142 @@ export async function handleDefaultsWrite(args: {
     'tool:defaultsWrite'
   );
   return { content: [{ type: 'text' as const, text: `Set ${args.domain}.${args.key} = ${args.value} (${args.type || 'string'})` }] };
+}
+
+// --- reduce_motion ---
+
+export const reduceMotionParams = {
+  enabled: z.boolean().describe('Enable or disable Reduce Motion accessibility setting'),
+  deviceId: z.string().optional().describe('Device (default: booted)'),
+};
+
+export async function handleReduceMotion(args: { enabled: boolean; deviceId?: string }) {
+  const device = await resolveDevice(args.deviceId);
+  await execSimctl(['ui', device, 'reduce_motion', args.enabled ? 'enabled' : 'disabled'], 'tool:reduceMotion');
+  return { content: [{ type: 'text' as const, text: `Reduce Motion ${args.enabled ? 'enabled' : 'disabled'}.` }] };
+}
+
+// --- smart_invert ---
+
+export const smartInvertParams = {
+  enabled: z.boolean().describe('Enable or disable Smart Invert Colors'),
+  deviceId: z.string().optional().describe('Device (default: booted)'),
+};
+
+export async function handleSmartInvert(args: { enabled: boolean; deviceId?: string }) {
+  const device = await resolveDevice(args.deviceId);
+  await execSimctl(['ui', device, 'smart_invert', args.enabled ? 'enabled' : 'disabled'], 'tool:smartInvert');
+  return { content: [{ type: 'text' as const, text: `Smart Invert ${args.enabled ? 'enabled' : 'disabled'}.` }] };
+}
+
+// --- bold_text ---
+
+export const boldTextParams = {
+  enabled: z.boolean().describe('Enable or disable Bold Text'),
+  deviceId: z.string().optional().describe('Device (default: booted)'),
+};
+
+export async function handleBoldText(args: { enabled: boolean; deviceId?: string }) {
+  const device = await resolveDevice(args.deviceId);
+  await execSimctl(['ui', device, 'bold_text', args.enabled ? 'enabled' : 'disabled'], 'tool:boldText');
+  return { content: [{ type: 'text' as const, text: `Bold Text ${args.enabled ? 'enabled' : 'disabled'}.` }] };
+}
+
+// --- reduce_transparency ---
+
+export const reduceTransparencyParams = {
+  enabled: z.boolean().describe('Enable or disable Reduce Transparency'),
+  deviceId: z.string().optional().describe('Device (default: booted)'),
+};
+
+export async function handleReduceTransparency(args: { enabled: boolean; deviceId?: string }) {
+  const device = await resolveDevice(args.deviceId);
+  await execSimctl(['ui', device, 'reduce_transparency', args.enabled ? 'enabled' : 'disabled'], 'tool:reduceTransparency');
+  return { content: [{ type: 'text' as const, text: `Reduce Transparency ${args.enabled ? 'enabled' : 'disabled'}.` }] };
+}
+
+// --- rotate ---
+
+export const rotateParams = {
+  direction: z.enum(['left', 'right']).describe('Rotation direction'),
+  deviceId: z.string().optional().describe('Device (default: booted)'),
+};
+
+export async function handleRotate(args: { direction: 'left' | 'right'; deviceId?: string }) {
+  await resolveDevice(args.deviceId);
+  // Cmd+Left/Right arrow in Simulator.app rotates the device
+  const keyCode = args.direction === 'left' ? 123 : 124; // left=123, right=124
+  const script = `
+tell application "Simulator" to activate
+delay 0.3
+tell application "System Events"
+  key code ${keyCode} using command down
+end tell`;
+  await runAppleScript(script, 'tool:rotate');
+  return { content: [{ type: 'text' as const, text: `Device rotated ${args.direction}.` }] };
+}
+
+// --- notify_post ---
+
+export const notifyPostParams = {
+  notification: z.string().describe('Darwin notification name to post (e.g., "com.apple.MobileDataSettingsUpdated")'),
+  deviceId: z.string().optional().describe('Device (default: booted)'),
+};
+
+export async function handleNotifyPost(args: { notification: string; deviceId?: string }) {
+  const device = await resolveDevice(args.deviceId);
+  await execSimctl(['spawn', device, 'notifyutil', '-p', args.notification], 'tool:notifyPost');
+  return { content: [{ type: 'text' as const, text: `Darwin notification posted: ${args.notification}` }] };
+}
+
+// --- set_locale ---
+
+export const setLocaleParams = {
+  locale: z.string().describe('Locale identifier (e.g., "en_US", "ja_JP", "fr_FR", "de_DE")'),
+  language: z.string().optional().describe('Language identifier (e.g., "en", "ja", "fr"). If omitted, derived from locale'),
+  deviceId: z.string().optional().describe('Device (default: booted)'),
+};
+
+export async function handleSetLocale(args: { locale: string; language?: string; deviceId?: string }) {
+  const device = await resolveDevice(args.deviceId);
+  const lang = args.language || args.locale.split('_')[0];
+
+  await execSimctl(
+    ['spawn', device, 'defaults', 'write', '.GlobalPreferences', 'AppleLocale', '-string', args.locale],
+    'tool:setLocale'
+  );
+  await execSimctl(
+    ['spawn', device, 'defaults', 'write', '.GlobalPreferences', 'AppleLanguages', '-array', lang],
+    'tool:setLocale'
+  );
+
+  return {
+    content: [{
+      type: 'text' as const,
+      text: `Locale set to "${args.locale}", language to "${lang}". Reboot the simulator for changes to take effect (use simulator_shutdown then simulator_boot).`,
+    }],
+  };
+}
+
+// --- trigger_siri ---
+
+export const triggerSiriParams = {
+  deviceId: z.string().optional().describe('Device (default: booted)'),
+};
+
+export async function handleTriggerSiri(args: { deviceId?: string }) {
+  await resolveDevice(args.deviceId);
+  const script = `
+tell application "Simulator" to activate
+delay 0.3
+tell application "System Events"
+  key code 49 using command down
+end tell`;
+  try {
+    await runAppleScript(script, 'tool:triggerSiri');
+    return { content: [{ type: 'text' as const, text: 'Siri invoked (Cmd+Space). Use simulator_type_text to enter a query if text input is available.' }] };
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    return { content: [{ type: 'text' as const, text: `Failed to trigger Siri: ${e.message}` }] };
+  }
 }

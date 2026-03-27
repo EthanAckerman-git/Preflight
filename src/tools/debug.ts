@@ -49,7 +49,24 @@ export async function handleGetLogs(args: {
 
   const cmdArgs = ['simctl', 'spawn', device, 'log', 'show'];
 
-  if (args.level) cmdArgs.push('--level', args.level);
+  // log show uses --debug/--info flags, not --level
+  if (args.level) {
+    switch (args.level) {
+      case 'debug':
+        cmdArgs.push('--debug');
+        break;
+      case 'info':
+        cmdArgs.push('--info');
+        break;
+      case 'error':
+        predicateParts.push('(messageType == error OR messageType == fault)');
+        break;
+      case 'fault':
+        predicateParts.push('messageType == fault');
+        break;
+      // 'default' needs no flag — it's the default behavior
+    }
+  }
   cmdArgs.push('--last', args.since || '1m');
   cmdArgs.push('--style', 'compact');
 
@@ -160,7 +177,28 @@ export async function handleStreamLogs(args: {
     while (buffer.length > maxLines) buffer.shift();
   });
 
+  child.on('error', (err) => {
+    buffer.push(`[error] Stream process error: ${err.message}`);
+  });
+
+  child.on('exit', (code, signal) => {
+    buffer.push(`[info] Stream process exited (code=${code}, signal=${signal})`);
+  });
+
   activeStreams.set(streamKey, { process: child, buffer, maxLines });
+
+  // Brief check to verify the process didn't die immediately
+  await new Promise(resolve => setTimeout(resolve, 200));
+  if (child.exitCode !== null) {
+    const output = buffer.join('\n');
+    activeStreams.delete(streamKey);
+    return {
+      content: [{
+        type: 'text' as const,
+        text: `Log stream failed to start (exit code ${child.exitCode}):\n${output}`,
+      }],
+    };
+  }
 
   return {
     content: [{

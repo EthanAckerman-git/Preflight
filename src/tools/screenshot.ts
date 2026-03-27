@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { execSimctlBuffer, resolveDevice } from '../helpers/simctl.js';
+import { execSimctl, resolveDevice } from '../helpers/simctl.js';
 import * as logger from '../helpers/logger.js';
-import { writeFile, mkdir, unlink } from 'node:fs/promises';
+import { writeFile, mkdir, unlink, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
@@ -60,12 +60,16 @@ export async function handleScreenshot(args: {
   const requestedFormat = args.format || 'jpeg';
 
   // Capture PNG from simctl (always start with PNG for best quality source)
+  // Write to temp file instead of piping to stdout (fixes "read-only file system" on newer macOS)
+  const tmpCapture = join(tmpdir(), `simscr-cap-${Date.now()}.png`);
   const simctlArgs = ['io', device, 'screenshot', '--type=png'];
   if (args.display) simctlArgs.push(`--display=${args.display}`);
   if (args.mask) simctlArgs.push(`--mask=${args.mask}`);
-  simctlArgs.push('-');
+  simctlArgs.push(tmpCapture);
 
-  const { stdout: pngBuffer } = await execSimctlBuffer(simctlArgs, 'tool:screenshot');
+  await execSimctl(simctlArgs, 'tool:screenshot');
+  const pngBuffer = await readFile(tmpCapture);
+  await unlink(tmpCapture).catch(() => {});
 
   let outputBuffer: Buffer;
   let mimeType: string;

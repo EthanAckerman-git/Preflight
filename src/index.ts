@@ -14,6 +14,10 @@ import {
   openUrlParams, handleOpenUrl,
   openSimulatorParams, handleOpenSimulator,
   getBootedSimIdParams, handleGetBootedSimId,
+  createDeviceParams, handleCreateDevice,
+  deleteDeviceParams, handleDeleteDevice,
+  renameDeviceParams, handleRenameDevice,
+  cloneDeviceParams, handleCloneDevice,
 } from './tools/device.js';
 import {
   listAppsParams, handleListApps,
@@ -72,12 +76,39 @@ import {
   networkStatusParams, handleNetworkStatus,
   defaultsReadParams, handleDefaultsRead,
   defaultsWriteParams, handleDefaultsWrite,
+  reduceMotionParams, handleReduceMotion,
+  smartInvertParams, handleSmartInvert,
+  boldTextParams, handleBoldText,
+  reduceTransparencyParams, handleReduceTransparency,
+  rotateParams, handleRotate,
+  notifyPostParams, handleNotifyPost,
+  setLocaleParams, handleSetLocale,
+  triggerSiriParams, handleTriggerSiri,
 } from './tools/advanced.js';
 import {
   snapshotParams, handleSnapshot,
   waitForElementParams, handleWaitForElement,
   elementExistsParams, handleElementExists,
 } from './tools/playwright.js';
+import {
+  storekitConfigParams, handleStorekitConfig,
+  storekitTransactionsParams, handleStorekitTransactions,
+  storekitDeleteTransactionsParams, handleStorekitDeleteTransactions,
+  storekitManageSubscriptionParams, handleStorekitManageSubscription,
+  storekitManageTransactionParams, handleStorekitManageTransaction,
+  storekitResetEligibilityParams, handleStorekitResetEligibility,
+} from './tools/storekit.js';
+import {
+  networkConditionParams, handleNetworkCondition,
+  networkCaptureParams, handleNetworkCapture,
+} from './tools/network.js';
+import {
+  leakCheckParams, handleLeakCheck,
+  heapInfoParams, handleHeapInfo,
+  vmmapParams, handleVmmap,
+  sampleProcessParams, handleSampleProcess,
+  thermalStateParams, handleThermalState,
+} from './tools/profiling.js';
 
 // Support tool filtering via environment variable
 const filteredTools = new Set(
@@ -491,7 +522,7 @@ registerTool(
 
 registerTool(
   'simulator_biometric',
-  'Set Face ID / Touch ID enrollment state. Test biometric authentication flows.',
+  'Control Face ID / Touch ID: enroll, unenroll, trigger matching (success), or trigger failure. Test biometric authentication flows end-to-end.',
   biometricParams,
   wrapHandler('simulator_biometric', handleBiometric),
 );
@@ -538,6 +569,191 @@ registerTool(
   'Quick check: does an element matching your criteria exist on screen right now? Returns true/false. Useful for conditional logic.',
   elementExistsParams,
   wrapHandler('simulator_element_exists', handleElementExists),
+);
+
+// ========== StoreKit Testing Tools ==========
+
+registerTool(
+  'simulator_storekit_config',
+  'Enable or disable StoreKit testing on the simulator. Required before using other StoreKit tools.',
+  storekitConfigParams,
+  wrapHandler('simulator_storekit_config', handleStorekitConfig),
+);
+
+registerTool(
+  'simulator_storekit_transactions',
+  'List all StoreKit test transactions (purchases, subscriptions, etc.).',
+  storekitTransactionsParams,
+  wrapHandler('simulator_storekit_transactions', handleStorekitTransactions),
+);
+
+registerTool(
+  'simulator_storekit_delete_transactions',
+  'Delete all StoreKit test transactions. Clears purchase history for fresh testing.',
+  storekitDeleteTransactionsParams,
+  wrapHandler('simulator_storekit_delete_transactions', handleStorekitDeleteTransactions),
+);
+
+registerTool(
+  'simulator_storekit_manage_subscription',
+  'Expire or force-renew a StoreKit test subscription by transaction ID.',
+  storekitManageSubscriptionParams,
+  wrapHandler('simulator_storekit_manage_subscription', handleStorekitManageSubscription),
+);
+
+registerTool(
+  'simulator_storekit_manage_transaction',
+  'Refund, approve, or decline ask-to-buy for a StoreKit test transaction.',
+  storekitManageTransactionParams,
+  wrapHandler('simulator_storekit_manage_transaction', handleStorekitManageTransaction),
+);
+
+registerTool(
+  'simulator_storekit_reset_eligibility',
+  'Reset introductory offer eligibility for all StoreKit products. Allows re-testing intro pricing.',
+  storekitResetEligibilityParams,
+  wrapHandler('simulator_storekit_reset_eligibility', handleStorekitResetEligibility),
+);
+
+// ========== Network Testing Tools ==========
+
+registerTool(
+  'simulator_network_condition',
+  'Apply network throttling: bandwidth limits, latency, and packet loss. Presets: 3G, LTE, Edge, WiFi, WiFi-lossy, 100%-loss (offline). Simulator shares host network stack, so conditioning affects all simulator traffic.',
+  networkConditionParams,
+  wrapHandler('simulator_network_condition', handleNetworkCondition),
+);
+
+registerTool(
+  'simulator_network_capture',
+  'Capture a snapshot of network activity: active TCP connections, DNS resolution, host interfaces, and any active network conditioning.',
+  networkCaptureParams,
+  wrapHandler('simulator_network_capture', handleNetworkCapture),
+);
+
+// ========== Debugging & Profiling Tools ==========
+
+registerTool(
+  'simulator_leak_check',
+  'Check a running app for memory leaks using Apple\'s leaks tool. Returns leak count, leaked bytes, and details.',
+  leakCheckParams,
+  wrapHandler('simulator_leak_check', handleLeakCheck),
+);
+
+registerTool(
+  'simulator_heap_info',
+  'Dump heap allocation summary for a running app. Shows object counts by class and total memory usage.',
+  heapInfoParams,
+  wrapHandler('simulator_heap_info', handleHeapInfo),
+);
+
+registerTool(
+  'simulator_vmmap',
+  'Show virtual memory map for a running app. Displays memory regions, sizes, and permissions. Useful for diagnosing memory issues.',
+  vmmapParams,
+  wrapHandler('simulator_vmmap', handleVmmap),
+);
+
+registerTool(
+  'simulator_sample_process',
+  'Sample a running app\'s CPU activity for a few seconds. Returns call stack tree — useful for finding performance hotspots and hangs.',
+  sampleProcessParams,
+  wrapHandler('simulator_sample_process', handleSampleProcess),
+);
+
+registerTool(
+  'simulator_thermal_state',
+  'Simulate thermal pressure changes (nominal, fair, serious, critical). Test how your app responds to device overheating.',
+  thermalStateParams,
+  wrapHandler('simulator_thermal_state', handleThermalState),
+);
+
+// ========== Accessibility Settings Tools ==========
+
+registerTool(
+  'simulator_set_reduce_motion',
+  'Enable or disable the Reduce Motion accessibility setting. Test animations and transitions with motion sensitivity.',
+  reduceMotionParams,
+  wrapHandler('simulator_set_reduce_motion', handleReduceMotion),
+);
+
+registerTool(
+  'simulator_set_smart_invert',
+  'Enable or disable Smart Invert Colors. Test how your app handles inverted color schemes.',
+  smartInvertParams,
+  wrapHandler('simulator_set_smart_invert', handleSmartInvert),
+);
+
+registerTool(
+  'simulator_set_bold_text',
+  'Enable or disable Bold Text accessibility setting. Test text rendering with bold system fonts.',
+  boldTextParams,
+  wrapHandler('simulator_set_bold_text', handleBoldText),
+);
+
+registerTool(
+  'simulator_set_reduce_transparency',
+  'Enable or disable Reduce Transparency. Test UI readability without blur/vibrancy effects.',
+  reduceTransparencyParams,
+  wrapHandler('simulator_set_reduce_transparency', handleReduceTransparency),
+);
+
+// ========== Additional Device Management ==========
+
+registerTool(
+  'simulator_create_device',
+  'Create a new simulator device. Specify name and device type; auto-detects latest iOS runtime if not provided.',
+  createDeviceParams,
+  wrapHandler('simulator_create_device', handleCreateDevice),
+);
+
+registerTool(
+  'simulator_delete_device',
+  'Permanently delete a simulator device by UDID or name.',
+  deleteDeviceParams,
+  wrapHandler('simulator_delete_device', handleDeleteDevice),
+);
+
+registerTool(
+  'simulator_rename_device',
+  'Rename a simulator device.',
+  renameDeviceParams,
+  wrapHandler('simulator_rename_device', handleRenameDevice),
+);
+
+registerTool(
+  'simulator_clone_device',
+  'Clone a simulator device with all its current state — apps, data, settings.',
+  cloneDeviceParams,
+  wrapHandler('simulator_clone_device', handleCloneDevice),
+);
+
+registerTool(
+  'simulator_rotate',
+  'Rotate the simulator device left or right. Uses Cmd+Arrow keyboard shortcut in Simulator.app.',
+  rotateParams,
+  wrapHandler('simulator_rotate', handleRotate),
+);
+
+registerTool(
+  'simulator_notify_post',
+  'Post a Darwin notification inside the simulator. Useful for triggering system events or testing notification observers.',
+  notifyPostParams,
+  wrapHandler('simulator_notify_post', handleNotifyPost),
+);
+
+registerTool(
+  'simulator_set_locale',
+  'Set the device locale and language for internationalization testing. Requires device reboot to take effect.',
+  setLocaleParams,
+  wrapHandler('simulator_set_locale', handleSetLocale),
+);
+
+registerTool(
+  'simulator_trigger_siri',
+  'Invoke Siri on the simulator. Use simulator_type_text to enter a query if text input is available.',
+  triggerSiriParams,
+  wrapHandler('simulator_trigger_siri', handleTriggerSiri),
 );
 
 // ========== Start Server ==========

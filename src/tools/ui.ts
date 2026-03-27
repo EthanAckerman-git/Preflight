@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { execSimctl, execSimctlBuffer, resolveDevice } from '../helpers/simctl.js';
+import { execSimctl, resolveDevice } from '../helpers/simctl.js';
 import * as logger from '../helpers/logger.js';
 import { spawn, ChildProcess, execFile } from 'node:child_process';
 import { join } from 'node:path';
@@ -177,7 +177,9 @@ export async function handleStopRecording(args: { savePath?: string; maxFrames?:
         '-frames:v', String(maxFrames),
         '-q:v', '8',
         join(frameDir, 'frame-%02d.jpg'),
-      ], { timeout: 15000 }).catch(() => {});
+      ], { timeout: 15000 }).catch((err) => {
+        logger.debug('tool:stopRecording', `ffmpeg frame extraction failed: ${(err as Error).message}`);
+      });
 
       // Read extracted frames
       const { readdir } = await import('node:fs/promises');
@@ -206,11 +208,10 @@ export async function handleStopRecording(args: { savePath?: string; maxFrames?:
   // If no frames extracted, take a final screenshot as fallback
   if (content.length === 0) {
     try {
-      const { stdout: pngBuffer } = await execSimctlBuffer(['io', device, 'screenshot', '--type=png', '-'], 'tool:stopRecording');
-      // Compress to JPEG
+      // Capture screenshot to temp file (avoids stdout piping issues on newer macOS)
       const tmpPng = join(tmpdir(), `stoprec-${Date.now()}.png`);
       const tmpJpg = join(tmpdir(), `stoprec-${Date.now()}.jpg`);
-      await writeFile(tmpPng, pngBuffer);
+      await execSimctl(['io', device, 'screenshot', '--type=png', tmpPng], 'tool:stopRecording');
       await execFileAsync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '60', tmpPng, '--out', tmpJpg], { timeout: 10000 });
       const jpgBuf = await readFile(tmpJpg);
       content.push({ type: 'image' as const, data: jpgBuf.toString('base64'), mimeType: 'image/jpeg' });

@@ -1,5 +1,7 @@
 import SwiftUI
 import CoreLocation
+import LocalAuthentication
+import Network
 
 // MARK: - Main Content View
 
@@ -35,6 +37,27 @@ struct ContentView: View {
                 }
                 .tag(3)
                 .accessibilityLabel("Settings Tab")
+
+            StoreKitTab()
+                .tabItem {
+                    Label("StoreKit", systemImage: "cart.fill")
+                }
+                .tag(4)
+                .accessibilityLabel("StoreKit Tab")
+
+            NetworkTab()
+                .tabItem {
+                    Label("Network", systemImage: "wifi")
+                }
+                .tag(5)
+                .accessibilityLabel("Network Tab")
+
+            DebugTab()
+                .tabItem {
+                    Label("Debug", systemImage: "ant.fill")
+                }
+                .tag(6)
+                .accessibilityLabel("Debug Tab")
         }
         .tint(.blue)
     }
@@ -1074,6 +1097,495 @@ struct SettingsTab: View {
 }
 
 import UserNotifications
+
+// MARK: - StoreKit Tab
+
+struct StoreKitTab: View {
+    @State private var purchaseStatus = "No purchases"
+    @State private var subscriptionState = "None"
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Mock Product
+                    GroupBox {
+                        VStack(spacing: 12) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Premium Upgrade")
+                                        .font(.headline)
+                                        .accessibilityIdentifier("productName")
+                                    Text("Unlock all features")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text("$4.99")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(.blue)
+                                    .accessibilityIdentifier("productPrice")
+                            }
+
+                            Button(action: {
+                                purchaseStatus = "Purchased"
+                            }) {
+                                Label("Buy Now", systemImage: "cart.badge.plus")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .accessibilityLabel("Buy Now Button")
+                            .accessibilityIdentifier("buyButton")
+
+                            Text("Status: \(purchaseStatus)")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .accessibilityIdentifier("purchaseStatus")
+                        }
+                    } label: {
+                        Label("In-App Purchase", systemImage: "creditcard.fill")
+                            .font(.headline)
+                    }
+
+                    // Subscription
+                    GroupBox {
+                        VStack(spacing: 12) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Monthly Pro")
+                                        .font(.headline)
+                                        .accessibilityIdentifier("subscriptionName")
+                                    Text("$9.99/month")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(subscriptionState)
+                                    .font(.callout)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(subscriptionState == "Active" ? .green : .orange)
+                                    .accessibilityIdentifier("subscriptionStatus")
+                            }
+
+                            HStack(spacing: 12) {
+                                Button("Subscribe") {
+                                    subscriptionState = "Active"
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.green)
+                                .accessibilityIdentifier("subscribeButton")
+
+                                Button("Expire") {
+                                    subscriptionState = "Expired"
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(.red)
+                                .accessibilityIdentifier("expireButton")
+                            }
+                        }
+                    } label: {
+                        Label("Subscription", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.headline)
+                    }
+
+                    // Testing Tip
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Test StoreKit with these MCP tools:")
+                                .font(.callout)
+                                .fontWeight(.semibold)
+                            Text("• simulator_storekit_config — enable/disable testing")
+                                .font(.caption)
+                            Text("• simulator_storekit_transactions — list transactions")
+                                .font(.caption)
+                            Text("• simulator_storekit_manage_subscription — expire/renew")
+                                .font(.caption)
+                            Text("• simulator_storekit_reset_eligibility — reset offers")
+                                .font(.caption)
+                        }
+                        .foregroundStyle(.secondary)
+                    } label: {
+                        Label("Testing Tip", systemImage: "lightbulb.fill")
+                            .font(.headline)
+                            .foregroundStyle(.yellow)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("StoreKit")
+        }
+    }
+}
+
+// MARK: - Network Tab
+
+struct NetworkTab: View {
+    @StateObject private var networkMonitor = NetworkMonitorViewModel()
+    @State private var requestResult = ""
+    @State private var requestLatency = ""
+    @State private var isLoading = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Connection Status
+                    GroupBox {
+                        VStack(spacing: 12) {
+                            Image(systemName: networkMonitor.isConnected ? "wifi" : "wifi.slash")
+                                .font(.system(size: 50))
+                                .foregroundStyle(networkMonitor.isConnected ? .green : .red)
+                                .accessibilityIdentifier("networkIcon")
+
+                            Text(networkMonitor.isConnected ? "Connected" : "Disconnected")
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                                .accessibilityIdentifier("connectionStatus")
+
+                            Text("Type: \(networkMonitor.connectionType)")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .accessibilityIdentifier("connectionType")
+                        }
+                    } label: {
+                        Label("Connection Status", systemImage: "antenna.radiowaves.left.and.right")
+                            .font(.headline)
+                    }
+
+                    // Network Request Test
+                    GroupBox {
+                        VStack(spacing: 12) {
+                            Button(action: performNetworkRequest) {
+                                if isLoading {
+                                    ProgressView()
+                                        .frame(maxWidth: .infinity)
+                                } else {
+                                    Label("Fetch apple.com", systemImage: "arrow.down.circle.fill")
+                                        .frame(maxWidth: .infinity)
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isLoading)
+                            .accessibilityLabel("Fetch Button")
+                            .accessibilityIdentifier("fetchButton")
+
+                            if !requestLatency.isEmpty {
+                                HStack {
+                                    Text("Latency:")
+                                        .fontWeight(.semibold)
+                                    Spacer()
+                                    Text(requestLatency)
+                                        .font(.system(.body, design: .monospaced))
+                                        .accessibilityIdentifier("latencyValue")
+                                }
+                            }
+
+                            if !requestResult.isEmpty {
+                                Text(requestResult)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(10)
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(8)
+                                    .accessibilityIdentifier("requestResult")
+                            }
+                        }
+                    } label: {
+                        Label("Network Request", systemImage: "arrow.up.arrow.down.circle")
+                            .font(.headline)
+                    }
+
+                    // Testing Tip
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Test network conditions with:")
+                                .font(.callout)
+                                .fontWeight(.semibold)
+                            Text("• simulator_network_condition preset=\"3G\"")
+                                .font(.caption)
+                            Text("• simulator_network_condition preset=\"100%-loss\"")
+                                .font(.caption)
+                            Text("• simulator_network_condition action=\"clear\"")
+                                .font(.caption)
+                            Text("• simulator_network_capture — view connections")
+                                .font(.caption)
+                        }
+                        .foregroundStyle(.secondary)
+                    } label: {
+                        Label("Testing Tip", systemImage: "lightbulb.fill")
+                            .font(.headline)
+                            .foregroundStyle(.yellow)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Network")
+        }
+    }
+
+    private func performNetworkRequest() {
+        isLoading = true
+        requestResult = ""
+        requestLatency = ""
+        let start = Date()
+
+        let url = URL(string: "https://www.apple.com")!
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            let elapsed = Date().timeIntervalSince(start)
+            DispatchQueue.main.async {
+                isLoading = false
+                requestLatency = String(format: "%.0f ms", elapsed * 1000)
+                if let error = error {
+                    requestResult = "Error: \(error.localizedDescription)"
+                } else if let httpResponse = response as? HTTPURLResponse {
+                    requestResult = "Status: \(httpResponse.statusCode) — \(data?.count ?? 0) bytes"
+                }
+            }
+        }.resume()
+    }
+}
+
+class NetworkMonitorViewModel: ObservableObject {
+    private let monitor = NWPathMonitor()
+    @Published var isConnected = true
+    @Published var connectionType = "Unknown"
+
+    init() {
+        monitor.pathUpdateHandler = { [weak self] path in
+            DispatchQueue.main.async {
+                self?.isConnected = path.status == .satisfied
+                if path.usesInterfaceType(.wifi) {
+                    self?.connectionType = "WiFi"
+                } else if path.usesInterfaceType(.cellular) {
+                    self?.connectionType = "Cellular"
+                } else if path.usesInterfaceType(.wiredEthernet) {
+                    self?.connectionType = "Ethernet"
+                } else {
+                    self?.connectionType = path.status == .satisfied ? "Other" : "None"
+                }
+            }
+        }
+        monitor.start(queue: DispatchQueue.global(qos: .background))
+    }
+
+    deinit {
+        monitor.cancel()
+    }
+}
+
+// MARK: - Debug Tab
+
+struct DebugTab: View {
+    @State private var memoryAllocated = false
+    @State private var memoryChunks: [[UInt8]] = []
+    @State private var cpuRunning = false
+    @State private var thermalState = "Nominal"
+    @State private var biometricResult = ""
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Memory Stress
+                    GroupBox {
+                        VStack(spacing: 12) {
+                            HStack {
+                                Text("Allocated: \(memoryChunks.count) MB")
+                                    .font(.system(.body, design: .monospaced))
+                                    .accessibilityIdentifier("memoryAllocated")
+                                Spacer()
+                            }
+
+                            HStack(spacing: 12) {
+                                Button("Allocate 10 MB") {
+                                    for _ in 0..<10 {
+                                        memoryChunks.append([UInt8](repeating: 1, count: 1024 * 1024))
+                                    }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.orange)
+                                .accessibilityIdentifier("allocateButton")
+
+                                Button("Free All") {
+                                    memoryChunks.removeAll()
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(.red)
+                                .accessibilityIdentifier("freeMemoryButton")
+                            }
+                        }
+                    } label: {
+                        Label("Memory Stress", systemImage: "memorychip")
+                            .font(.headline)
+                    }
+
+                    // CPU Stress
+                    GroupBox {
+                        VStack(spacing: 12) {
+                            Text(cpuRunning ? "CPU busy..." : "CPU idle")
+                                .font(.system(.body, design: .monospaced))
+                                .accessibilityIdentifier("cpuStatus")
+
+                            Button(cpuRunning ? "Running..." : "Run CPU Loop (3s)") {
+                                guard !cpuRunning else { return }
+                                cpuRunning = true
+                                DispatchQueue.global(qos: .userInitiated).async {
+                                    let end = Date().addingTimeInterval(3)
+                                    var x: Double = 0
+                                    while Date() < end {
+                                        x += sin(Double.random(in: 0...1000))
+                                    }
+                                    _ = x
+                                    DispatchQueue.main.async { cpuRunning = false }
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.purple)
+                            .disabled(cpuRunning)
+                            .accessibilityIdentifier("cpuStressButton")
+                        }
+                    } label: {
+                        Label("CPU Stress", systemImage: "cpu")
+                            .font(.headline)
+                    }
+
+                    // Thermal State
+                    GroupBox {
+                        VStack(spacing: 8) {
+                            HStack {
+                                Text("Thermal State:")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Text(thermalState)
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundStyle(thermalState == "Nominal" ? .green : .orange)
+                                    .accessibilityIdentifier("thermalState")
+                            }
+
+                            Button("Refresh") {
+                                updateThermalState()
+                            }
+                            .buttonStyle(.bordered)
+                            .accessibilityIdentifier("refreshThermalButton")
+                        }
+                    } label: {
+                        Label("Thermal State", systemImage: "thermometer.medium")
+                            .font(.headline)
+                    }
+
+                    // Accessibility Settings Observer
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 8) {
+                            accessibilityRow("Reduce Motion", value: UIAccessibility.isReduceMotionEnabled, id: "reduceMotion")
+                            accessibilityRow("Bold Text", value: UIAccessibility.isBoldTextEnabled, id: "boldText")
+                            accessibilityRow("Reduce Transparency", value: UIAccessibility.isReduceTransparencyEnabled, id: "reduceTransparency")
+                            accessibilityRow("Invert Colors", value: UIAccessibility.isInvertColorsEnabled, id: "invertColors")
+                            accessibilityRow("Increase Contrast", value: UIAccessibility.isDarkerSystemColorsEnabled, id: "increaseContrast")
+                        }
+                    } label: {
+                        Label("Accessibility Settings", systemImage: "accessibility")
+                            .font(.headline)
+                    }
+                    .accessibilityIdentifier("accessibilitySection")
+
+                    // Biometric Auth
+                    GroupBox {
+                        VStack(spacing: 12) {
+                            Button(action: authenticateBiometric) {
+                                Label("Authenticate with Face ID", systemImage: "faceid")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.indigo)
+                            .accessibilityLabel("Authenticate Biometric Button")
+                            .accessibilityIdentifier("biometricButton")
+
+                            if !biometricResult.isEmpty {
+                                Text(biometricResult)
+                                    .font(.callout)
+                                    .foregroundStyle(biometricResult.contains("Success") ? .green : .red)
+                                    .accessibilityIdentifier("biometricResult")
+                            }
+                        }
+                    } label: {
+                        Label("Biometric Auth", systemImage: "lock.shield.fill")
+                            .font(.headline)
+                    }
+
+                    // Testing Tip
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Debug tools available:")
+                                .font(.callout)
+                                .fontWeight(.semibold)
+                            Text("• simulator_leak_check — detect memory leaks")
+                                .font(.caption)
+                            Text("• simulator_heap_info — heap allocation summary")
+                                .font(.caption)
+                            Text("• simulator_sample_process — CPU hotspot sampling")
+                                .font(.caption)
+                            Text("• simulator_thermal_state — simulate thermal pressure")
+                                .font(.caption)
+                            Text("• simulator_biometric — match/fail Face ID")
+                                .font(.caption)
+                            Text("• simulator_set_reduce_motion — toggle accessibility")
+                                .font(.caption)
+                        }
+                        .foregroundStyle(.secondary)
+                    } label: {
+                        Label("Testing Tip", systemImage: "lightbulb.fill")
+                            .font(.headline)
+                            .foregroundStyle(.yellow)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Debug")
+            .onAppear { updateThermalState() }
+        }
+    }
+
+    private func accessibilityRow(_ label: String, value: Bool, id: String) -> some View {
+        HStack {
+            Text(label)
+                .fontWeight(.semibold)
+            Spacer()
+            Text(value ? "ON" : "OFF")
+                .font(.system(.body, design: .monospaced))
+                .foregroundStyle(value ? .green : .secondary)
+                .accessibilityIdentifier(id + "Value")
+        }
+    }
+
+    private func updateThermalState() {
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: thermalState = "Nominal"
+        case .fair: thermalState = "Fair"
+        case .serious: thermalState = "Serious"
+        case .critical: thermalState = "Critical"
+        @unknown default: thermalState = "Unknown"
+        }
+    }
+
+    private func authenticateBiometric() {
+        let context = LAContext()
+        var error: NSError?
+        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: "Authenticate to test biometrics") { success, error in
+                DispatchQueue.main.async {
+                    if success {
+                        biometricResult = "Success — Authenticated!"
+                    } else {
+                        biometricResult = "Failed: \(error?.localizedDescription ?? "unknown error")"
+                    }
+                }
+            }
+        } else {
+            biometricResult = "Biometrics unavailable: \(error?.localizedDescription ?? "not enrolled")"
+        }
+    }
+}
 
 // MARK: - Preview
 

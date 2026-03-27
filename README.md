@@ -2,7 +2,7 @@
 
 The most comprehensive MCP (Model Context Protocol) server for iOS Simulator automation. Gives AI agents like Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible tool full control over iOS Simulators — tap, swipe, type, read accessibility trees, inspect app data, capture screenshots, record video, manage devices, and debug apps in real time.
 
-**57 tools** across 10 categories. Zero cursor interference — works silently in the background while you use your Mac.
+**82 tools** across 15 categories. Zero cursor interference — works silently in the background while you use your Mac.
 
 Inspired by [Playwright MCP](https://github.com/anthropics/mcp-server-playwright) for web automation — Preflight brings the same structured accessibility-first approach to iOS.
 
@@ -15,7 +15,7 @@ Inspired by [Playwright MCP](https://github.com/anthropics/mcp-server-playwright
 - **AI-optimized** — Images compressed for minimal token usage. Video → key frames (most AI models can't view video files).
 - **Accessibility-first** — Like Playwright's `browser_snapshot`, use `simulator_snapshot` to understand the screen without vision models.
 - **Cursor-free** — Touch injection via idb (IndigoHID) — your Mac cursor stays put.
-- **57 tools** — From basic tap/swipe to Dynamic Type testing, biometric enrollment, crash log analysis.
+- **82 tools** — From basic tap/swipe to StoreKit testing, network conditioning, memory profiling, and crash log analysis.
 
 ## Quick Start
 
@@ -279,16 +279,66 @@ Set the `PATH` environment variable to include idb's location for cursor-free to
 | `simulator_verbose_logging` | Enable/disable verbose device logging for deep debugging. |
 | `simulator_install_app_data` | Install .xcappdata packages to restore test data snapshots. |
 | `simulator_get_env` | Read environment variables from the running simulator. |
-| `simulator_biometric` | Set Face ID / Touch ID enrollment state for auth testing. |
+| `simulator_biometric` | Enroll, unenroll, match, or fail Face ID / Touch ID for auth testing. |
 | `simulator_network_status` | Get network configuration — DNS, interfaces, connectivity status. |
 | `simulator_defaults_read` | Read UserDefaults from inside the simulator (inspect app prefs, feature flags). |
 | `simulator_defaults_write` | Write UserDefaults inside the simulator (set flags, inject test config). |
+| `simulator_rotate` | Rotate the simulator left or right. |
+| `simulator_notify_post` | Post a Darwin notification to trigger system events. |
+| `simulator_set_locale` | Set device locale for internationalization testing. |
+| `simulator_trigger_siri` | Invoke Siri for voice command testing. |
+
+### Accessibility Settings (4 tools)
+
+| Tool | Description |
+|------|-------------|
+| `simulator_set_reduce_motion` | Toggle Reduce Motion accessibility setting. |
+| `simulator_set_smart_invert` | Toggle Smart Invert Colors. |
+| `simulator_set_bold_text` | Toggle Bold Text. |
+| `simulator_set_reduce_transparency` | Toggle Reduce Transparency. |
+
+### Device Creation & Management (4 tools)
+
+| Tool | Description |
+|------|-------------|
+| `simulator_create_device` | Create a new simulator with device type and runtime. |
+| `simulator_delete_device` | Permanently delete a simulator device. |
+| `simulator_rename_device` | Rename an existing device. |
+| `simulator_clone_device` | Clone a device with all its state. |
+
+### StoreKit Testing (6 tools)
+
+| Tool | Description |
+|------|-------------|
+| `simulator_storekit_config` | Enable or disable StoreKit test mode. |
+| `simulator_storekit_transactions` | List all StoreKit test transactions. |
+| `simulator_storekit_delete_transactions` | Clear all test transactions. |
+| `simulator_storekit_manage_subscription` | Expire or force-renew a subscription. |
+| `simulator_storekit_manage_transaction` | Refund, approve, or decline ask-to-buy transactions. |
+| `simulator_storekit_reset_eligibility` | Reset introductory offer eligibility for all products. |
+
+### Network Testing (2 tools)
+
+| Tool | Description |
+|------|-------------|
+| `simulator_network_condition` | Apply network throttling with presets (3G, LTE, Edge, WiFi, 100% loss) or custom bandwidth/latency/loss. |
+| `simulator_network_capture` | Capture network activity summary — active connections, DNS, interfaces. |
+
+### Debugging & Profiling (5 tools)
+
+| Tool | Description |
+|------|-------------|
+| `simulator_leak_check` | Check a running app for memory leaks via Apple's `leaks` tool. |
+| `simulator_heap_info` | Dump heap allocation summary — object counts by class, total memory. |
+| `simulator_vmmap` | Show virtual memory map — regions, sizes, permissions. |
+| `simulator_sample_process` | Sample a process for CPU hotspot detection and hang analysis. |
+| `simulator_thermal_state` | Simulate thermal pressure state changes (nominal, fair, serious, critical). |
 
 ## Architecture
 
 ```
 src/
-├── index.ts                    # MCP server entry, 57 tool registrations
+├── index.ts                    # MCP server entry, 82 tool registrations
 ├── helpers/
 │   ├── idb.ts                  # Facebook idb CLI wrapper (cursor-free touch)
 │   ├── simctl.ts               # xcrun simctl command wrapper
@@ -304,7 +354,10 @@ src/
     ├── system.ts               # Location, push, clipboard, media, permissions
     ├── ui.ts                   # Appearance, status bar, video recording, navigate back
     ├── debug.ts                # Logs, files, crash reports, accessibility
-    ├── advanced.ts             # Dynamic Type, keychain, iCloud, biometric, defaults
+    ├── advanced.ts             # Dynamic Type, keychain, iCloud, biometric, defaults, accessibility, rotation, locale
+    ├── storekit.ts             # StoreKit testing — transactions, subscriptions, eligibility
+    ├── network.ts              # Network conditioning (dnctl/pfctl) and capture
+    ├── profiling.ts            # Memory profiling — leaks, heap, vmmap, sample, thermal
     └── playwright.ts           # Snapshot, wait_for_element, element_exists
 ```
 
@@ -345,11 +398,14 @@ xcodebuild -project MCPDemo.xcodeproj -scheme MCPDemo \
   build
 ```
 
-The demo app has 4 tabs exercising every tool category:
+The demo app has 7 tabs exercising every tool category:
 - **Interactions**: Buttons, text fields, long-press zones, navigation stack, scrollable lists
 - **Location**: Live GPS display for testing `simulator_set_location`
 - **Notifications**: Push notification display for testing `simulator_send_push`
 - **Settings**: Clipboard, file I/O, accessibility toggles, UserDefaults
+- **StoreKit**: Mock purchases and subscriptions for testing StoreKit tools
+- **Network**: Connection monitoring and latency testing for network conditioning
+- **Debug**: Memory/CPU stress tests, thermal state, accessibility settings observer, biometric auth
 
 ## Configuration
 
